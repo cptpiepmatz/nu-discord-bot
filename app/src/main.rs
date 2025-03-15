@@ -43,29 +43,31 @@ async fn validate_security_headers(request: Request, next: Next) -> Result<Respo
 
     let signature = headers
         .get("X-Signature-Ed25519")
-        .ok_or(StatusCode::BAD_REQUEST)?;
-    let signature = signature.to_str().map_err(|_| StatusCode::BAD_REQUEST)?;
-    let signature = hex::decode(signature).map_err(|_| StatusCode::BAD_REQUEST)?;
+        .ok_or(StatusCode::BAD_REQUEST)?
+        .to_str()
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+    let signature = hex::decode(signature).map_err(|_| StatusCode::UNPROCESSABLE_ENTITY)?;
     let signature = <[u8; 64]>::try_from(signature).map_err(|_| StatusCode::BAD_REQUEST)?;
     let signature = Signature::from_bytes(&signature);
 
     let timestamp = headers
         .get("X-Signature-Timestamp")
-        .ok_or(StatusCode::BAD_REQUEST)?;
-    let timestamp = timestamp.to_str().map_err(|_| StatusCode::BAD_REQUEST)?;
-    let body = to_bytes(body, usize::MAX)
+        .ok_or(StatusCode::BAD_REQUEST)?
+        .to_str()
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    let body = to_bytes(body, 4096) // Set a reasonable limit
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let body = String::from_utf8(body.to_vec()).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let msg = format!("{timestamp}{body}");
 
-    if verify_key.verify(msg.as_bytes(), &signature).is_ok() {
-        let body = Body::from(body);
-        let request = Request::from_parts(parts, body);
-        return Ok(next.run(request).await);
+    let msg = [timestamp.as_bytes(), &body].concat();
+
+    if verify_key.verify(&msg, &signature).is_err() {
+        return Err(StatusCode::UNAUTHORIZED);
     }
 
-    Err(StatusCode::UNAUTHORIZED)
+    let request = Request::from_parts(parts, Body::from(body));
+    Ok(next.run(request).await)
 }
 
 #[shuttle_runtime::main]
