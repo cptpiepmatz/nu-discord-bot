@@ -1,0 +1,8 @@
+[package]
+name = "nu-discord-bot-wasm"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]

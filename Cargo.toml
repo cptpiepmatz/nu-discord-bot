@@ -1,9 +1,7 @@
-[package]
-name = "nu-discord-bot"
+[workspace.package]
 version = "0.1.0"
-edition = "2021"
-publish = false
+edition = "2024"
 
-[dependencies]
-shuttle-runtime = "0.53.0"
-tokio = "1"
+[workspace]
+resolver = "3"
+members = ["app", "wasm"]
