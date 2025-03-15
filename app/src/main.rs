@@ -1,4 +1,4 @@
-use axum::{response::IntoResponse, routing::get, Json, Router};
+use axum::{Json, Router, response::IntoResponse, routing::get};
 use serde_json::json;
 
 async fn version() -> impl IntoResponse {
@@ -10,7 +10,6 @@ async fn version() -> impl IntoResponse {
 
 #[shuttle_runtime::main]
 async fn axum() -> shuttle_axum::ShuttleAxum {
-
     let router = Router::new()
         .route("/", get(version))
         .route("/version", get(version));
