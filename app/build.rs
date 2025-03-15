@@ -1,21 +1,22 @@
-use std::{env, process::Command};
+use std::{collections::VecDeque, env, process::Command};
+
+const COMMAND: &str = "cargo build --lib --target wasm32-unknown-unknown --target-dir target/wasm";
 
 fn main() {
-    if env::var("CARGO_FEATURE_SHUTTLE").is_ok() {
-        let status = Command::new("cargo")
-            .args([
-                "build",
-                "--lib",
-                "--release",
-                "--target",
-                "wasm32-unknown-unknown",
-            ])
-            .current_dir(env::var("CARGO_MANIFEST_DIR").unwrap() + "/..")
-            .status()
-            .unwrap();
-        
-        if !status.success() {
-            panic!("Could not build WASM library")
-        }
+    let mut args: VecDeque<_> = COMMAND.split(' ').collect();
+    let command = args.pop_front().unwrap();
+
+    if let Ok("release") = env::var("PROFILE").as_deref() {
+        args.push_back("--release");
+    }
+
+    let status = Command::new(command)
+        .args(&args)
+        .current_dir(env::var("CARGO_MANIFEST_DIR").unwrap() + "/..")
+        .status()
+        .unwrap();
+
+    if !status.success() {
+        panic!("Could not build WASM library")
     }
 }
