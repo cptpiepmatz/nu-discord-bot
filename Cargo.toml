@@ -1,0 +1,9 @@
+[package]
+name = "nu-discord-bot"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+shuttle-runtime = "0.53.0"
+tokio = "1"
