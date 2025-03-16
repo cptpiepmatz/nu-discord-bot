@@ -9,7 +9,7 @@ mod middleware;
 mod routes;
 
 static_toml! {
-    const CONSTANTS = include_toml!("../constants.toml");
+    const CONSTANTS = include_toml!("../Constants.toml");
 }
 
 const APPLICATION_ID: Id<ApplicationMarker> = Id::new(CONSTANTS.discord.application_id as u64);

@@ -1,0 +1,16 @@
+[package]
+name = "nu-discord-bot-register"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[[bin]]
+name = "register"
+path = "register.rs"
+
+[dependencies]
+static-toml.workspace = true
+tokio.workspace = true
+twilight-http.workspace = true
+twilight-model.workspace = true
+twilight-util.workspace = true

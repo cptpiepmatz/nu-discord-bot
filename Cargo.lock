@@ -1028,6 +1028,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-discord-bot-register"
+version = "0.1.0"
+dependencies = [
+ "static-toml",
+ "tokio",
+ "twilight-http",
+ "twilight-model",
+ "twilight-util",
+]
+
+[[package]]
 name = "nu-discord-bot-wasm"
 version = "0.1.0"
 
@@ -2392,6 +2403,16 @@ dependencies = [
  "serde-value",
  "serde_repr",
  "time",
+]
+
+[[package]]
+name = "twilight-util"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5777d71286611c1639021f5f6e6b40300eb8da278449ac1cf6da01c94053425"
+dependencies = [
+ "twilight-model",
+ "twilight-validate",
 ]
 
 [[package]]

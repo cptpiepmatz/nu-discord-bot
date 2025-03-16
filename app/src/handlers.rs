@@ -22,7 +22,8 @@ async fn handle_ping() -> Result<Json<InteractionResponse>, StatusCode> {
     Ok(InteractionResponse {
         kind: InteractionResponseType::Pong,
         data: None,
-    }.into())
+    }
+    .into())
 }
 
 async fn handle_application_command() -> Result<Json<InteractionResponse>, StatusCode> {
