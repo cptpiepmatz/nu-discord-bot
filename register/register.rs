@@ -7,8 +7,6 @@ use twilight_model::{
 use twilight_util::builder::command::{AttachmentBuilder, CommandBuilder, StringBuilder};
 
 static_toml! {
-    #[static_toml(auto_doc = false)]
-    static SECRETS = include_toml!("../Secrets.toml");
     const CONSTANTS = include_toml!("../Constants.toml");
 }
 
@@ -16,7 +14,9 @@ const APPLICATION_ID: Id<ApplicationMarker> = Id::new(CONSTANTS.discord.applicat
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    let client = Client::new(SECRETS.discord.token.to_owned());
+    let discord_token = std::env::var("DISCORD_TOKEN").unwrap();
+
+    let client = Client::new(discord_token);
     let interaction_client = client.interaction(APPLICATION_ID);
 
     let nu_command =
