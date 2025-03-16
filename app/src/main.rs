@@ -1,16 +1,23 @@
 use anyhow::{Context, anyhow};
 use ed25519_dalek::VerifyingKey;
-use hex_literal::hex;
 use middleware::VERIFY_KEY;
+use static_toml::static_toml;
 use twilight_model::id::{Id, marker::ApplicationMarker};
 
 mod handlers;
 mod middleware;
 mod routes;
 
-const APPLICATION_ID: Id<ApplicationMarker> = Id::new(1350440050927865878);
+static_toml! {
+    const CONSTANTS = include_toml!("../constants.toml");
+}
+
+const APPLICATION_ID: Id<ApplicationMarker> = Id::new(CONSTANTS.discord.application_id as u64);
 const PUBLIC_KEY: [u8; 32] =
-    hex!("cc5d283a4aa8d726bcbd7938bfccda57984568d5e7b8546ac963a7cfd2fa0b5e");
+    match const_hex::const_decode_to_array(CONSTANTS.discord.public_key.as_bytes()) {
+        Ok(value) => value,
+        Err(_) => panic!("invalid public key"),
+    };
 
 #[shuttle_runtime::main]
 async fn axum() -> shuttle_axum::ShuttleAxum {

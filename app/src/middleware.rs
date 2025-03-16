@@ -24,7 +24,7 @@ pub async fn validate_security_headers(
         .ok_or(StatusCode::BAD_REQUEST)?
         .to_str()
         .map_err(|_| StatusCode::BAD_REQUEST)?;
-    let signature = hex::decode(signature).map_err(|_| StatusCode::UNPROCESSABLE_ENTITY)?;
+    let signature = const_hex::decode(signature).map_err(|_| StatusCode::UNPROCESSABLE_ENTITY)?;
     let signature = <[u8; 64]>::try_from(signature).map_err(|_| StatusCode::BAD_REQUEST)?;
     let signature = Signature::from_bytes(&signature);
 
