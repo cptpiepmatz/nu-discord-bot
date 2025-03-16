@@ -6,3 +6,16 @@ publish = false
 
 [lib]
 crate-type = ["cdylib"]
+
+[dependencies]
+bytes.workspace = true
+nu-cmd-extra.workspace = true
+nu-cmd-lang.workspace = true
+nu-command.workspace = true
+nu-engine.workspace = true
+nu-parser.workspace = true
+nu-path.workspace = true
+nu-protocol.workspace = true
+nu-utils.workspace = true
+nuon.workspace = true
+wit-bindgen.workspace = true

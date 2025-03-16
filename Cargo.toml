@@ -10,8 +10,18 @@ default-members = ["app", "wasm"]
 [workspace.dependencies]
 anyhow = "1"
 axum = "0.8"
+bytes = "1.10"
 const-hex = "1.14"
 ed25519-dalek = "2"
+nu-cmd-extra = { version = "0.102", default-features = false }
+nu-cmd-lang = { version = "0.102", default-features = false }
+nu-command = { version = "0.102", default-features = false }
+nu-engine = { version = "0.102", default-features = false }
+nu-parser = { version = "0.102", default-features = false }
+nu-path = { version = "0.102", default-features = false }
+nu-protocol = { version = "0.102", default-features = false }
+nu-utils = { version = "0.102", default-features = false }
+nuon = { version = "0.102", default-features = false }
 serde = "1"
 serde_json = "1"
 shuttle-axum = "0.53"
@@ -21,3 +31,4 @@ tokio = { version = "1", features = ["rt", "macros"] }
 twilight-http = "0.16"
 twilight-model = "0.16"
 twilight-util = { version = "0.16", features = ["builder"] }
+wit-bindgen = "0.41"

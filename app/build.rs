@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, env, process::Command};
 
-const COMMAND: &str = "cargo build --lib --target wasm32-unknown-unknown --target-dir target/wasm";
+const COMMAND: &str = "cargo build --lib --target wasm32-wasip2 --target-dir target/wasm";
 
 fn main() {
     let mut args: VecDeque<_> = COMMAND.split(' ').collect();
