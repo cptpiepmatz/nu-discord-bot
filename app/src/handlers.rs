@@ -49,7 +49,7 @@ impl DiscordHandler {
             .expect("sending execute params failed");
         let res = req
             .1
-            .blocking_recv()
+            .await
             .expect("receiving execute response failed");
         Ok(Json(InteractionResponse {
             kind: InteractionResponseType::ChannelMessageWithSource,
