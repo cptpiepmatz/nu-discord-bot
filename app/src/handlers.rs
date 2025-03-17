@@ -121,7 +121,11 @@ impl DiscordHandler {
         };
 
         dbg!(&file);
-        dbg!(file.clone().map(|file| file.to_vec()).map(String::from_utf8));
+        dbg!(
+            file.clone()
+                .map(|file| file.to_vec())
+                .map(String::from_utf8)
+        );
 
         let req = tokio::sync::oneshot::channel();
         self.execute_tx

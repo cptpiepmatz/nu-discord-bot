@@ -8,11 +8,11 @@ use wasmtime_wasi::{IoView, ResourceTable, WasiCtx, WasiView};
 wasmtime::component::bindgen!(in "../wit");
 
 #[cfg(debug_assertions)]
-static CWASM_BYTES: &[u8] =
-    include_bytes!("../../target/wasm/wasm32-wasip2/debug/nu_discord_bot_wasm.cwasm");
+static WASM_BYTES: &[u8] =
+    include_bytes!("../../target/wasm/wasm32-wasip2/debug/nu_discord_bot_wasm.wasm");
 #[cfg(not(debug_assertions))]
-static CWASM_BYTES: &[u8] =
-    include_bytes!("../../target/wasm/wasm32-wasip2/release/nu_discord_bot_wasm.cwasm");
+static WASM_BYTES: &[u8] =
+    include_bytes!("../../target/wasm/wasm32-wasip2/release/nu_discord_bot_wasm.wasm");
 
 struct Ctx {
     table: ResourceTable,
@@ -45,8 +45,8 @@ pub async fn run(mut rx: tokio::sync::mpsc::Receiver<ExecuteParams>) -> ! {
     };
 
     let engine = Engine::default();
-    let component = unsafe { Component::deserialize(&engine, CWASM_BYTES) }
-        .expect("could not deserialize component");
+    let component =
+        Component::from_binary(&engine, WASM_BYTES).expect("could not compile component");
 
     let mut store = Store::new(&engine, ctx);
     let mut linker = Linker::new(&engine);
