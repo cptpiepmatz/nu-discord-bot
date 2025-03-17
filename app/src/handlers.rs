@@ -105,7 +105,7 @@ impl DiscordHandler {
 
                 let file = self
                     .http_client
-                    .get(&file.proxy_url)
+                    .get(&file.url)
                     .send()
                     .await
                     .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "could not GET proxy url"))?;
