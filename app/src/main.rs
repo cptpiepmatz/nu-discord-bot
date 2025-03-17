@@ -7,6 +7,7 @@ use twilight_model::id::{Id, marker::ApplicationMarker};
 mod handlers;
 mod middleware;
 mod routes;
+mod nu;
 
 static_toml! {
     const CONSTANTS = include_toml!("../Constants.toml");

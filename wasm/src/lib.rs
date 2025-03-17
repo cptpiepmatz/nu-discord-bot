@@ -1,6 +1,6 @@
 use exports::nu::discord_bot::nu::{Guest, GuestExecutor};
 
-wit_bindgen::generate!();
+wit_bindgen::generate!(in "../wit");
 
 struct NuComponent;
 
