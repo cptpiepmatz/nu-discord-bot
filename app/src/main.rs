@@ -6,8 +6,11 @@ use handlers::DiscordHandler;
 use middleware::VERIFY_KEY;
 use shuttle_runtime::SecretStore;
 use static_toml::static_toml;
-use twilight_http::{client::InteractionClient, Client};
-use twilight_model::{application::command::CommandType, id::{marker::ApplicationMarker, Id}};
+use twilight_http::{Client, client::InteractionClient};
+use twilight_model::{
+    application::command::CommandType,
+    id::{Id, marker::ApplicationMarker},
+};
 use twilight_util::builder::command::{AttachmentBuilder, CommandBuilder, StringBuilder};
 
 mod handlers;
@@ -26,35 +29,33 @@ const PUBLIC_KEY: [u8; 32] =
         Err(_) => panic!("invalid public key"),
     };
 
-static CLIENT: OnceLock<Client> = OnceLock::new();
-static INTERACTION_CLIENT: OnceLock<InteractionClient> = OnceLock::new();
-
 #[shuttle_runtime::main]
-async fn axum(
-    #[shuttle_runtime::Secrets] secrets: SecretStore,
-) -> shuttle_axum::ShuttleAxum {
+async fn axum(#[shuttle_runtime::Secrets] secrets: SecretStore) -> shuttle_axum::ShuttleAxum {
     VERIFY_KEY
         .set(VerifyingKey::from_bytes(&PUBLIC_KEY).context("invalid verifying key")?)
         .map_err(|_| anyhow!("verify key somehow already set"))?;
 
-    let discord_token = secrets.get("DISCORD_TOKEN").context("missing DISCORD_TOKEN in secrets")?;
-    CLIENT.set(Client::new(discord_token));
-    let client = CLIENT.get().context("just set client")?;
-    INTERACTION_CLIENT.set(client.interaction(APPLICATION_ID));
+    let discord_token = secrets
+        .get("DISCORD_TOKEN")
+        .context("missing DISCORD_TOKEN in secrets")?;
+    let client = Box::leak(Box::new(Client::new(discord_token)));
+    let interaction_client = Box::leak(Box::new(client.interaction(APPLICATION_ID)));
 
-    register_commands().await?;
+    register_commands(interaction_client).await?;
 
     let req = tokio::sync::mpsc::channel(4);
 
     tokio::spawn(nu::run(req.1));
 
-    let router = routes::create_router(DiscordHandler { execute_tx: req.0 });
+    let router = routes::create_router(DiscordHandler {
+        execute_tx: req.0,
+        client,
+        interaction_client,
+    });
     Ok(router.into())
 }
 
-
-async fn register_commands() -> anyhow::Result<()> {
-    let interaction_client = INTERACTION_CLIENT.get().context("interaction client not set")?;
+async fn register_commands(interaction_client: &InteractionClient<'_>) -> anyhow::Result<()> {
     let nu_command =
         CommandBuilder::new("nu", "Execute a nushell pipeline", CommandType::ChatInput)
             .option(StringBuilder::new("source", "pipeline source code").required(true))
