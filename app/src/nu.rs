@@ -3,10 +3,7 @@ use wasmtime::{
     Engine, Store,
     component::{Component, Linker},
 };
-use wasmtime_wasi::{
-    IoImpl, IoView, ResourceTable, WasiCtx, WasiImpl, WasiView,
-    bindings::{cli::exit::LinkOptions, exports::wasi},
-};
+use wasmtime_wasi::{IoView, ResourceTable, WasiCtx, WasiView};
 
 wasmtime::component::bindgen!(in "../wit");
 

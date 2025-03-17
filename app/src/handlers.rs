@@ -38,12 +38,15 @@ impl DiscordHandler {
 
     async fn handle_application_command(&self) -> Result<Json<InteractionResponse>, StatusCode> {
         let req = tokio::sync::oneshot::channel();
-        self.execute_tx.send(ExecuteParams {
-            fname: "fname".to_string(),
-            source: "some source".to_string(),
-            file: None,
-            res_tx: req.0,
-        });
+        self.execute_tx
+            .send(ExecuteParams {
+                fname: "fname".to_string(),
+                source: "some source".to_string(),
+                file: None,
+                res_tx: req.0,
+            })
+            .await
+            .expect("sending execute params failed");
         let res = req
             .1
             .blocking_recv()
