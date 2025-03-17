@@ -16,7 +16,7 @@ impl GuestExecutor for Executor {
     }
 
     fn execute(&self, fname: String, source: String, file: Option<Vec<u8>>) -> String {
-        format!("trying to execute: {source}")
+        format!("trying to execute: \u{001b}[0;32m{source}\u{001b}[0;0m")
     }
 }
 

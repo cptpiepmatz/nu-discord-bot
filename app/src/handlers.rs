@@ -47,13 +47,14 @@ impl DiscordHandler {
             })
             .await
             .expect("sending execute params failed");
-        let res = req
-            .1
-            .await
-            .expect("receiving execute response failed");
+        let res = req.1.await.expect("receiving execute response failed");
         Ok(Json(InteractionResponse {
             kind: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(InteractionResponseDataBuilder::new().content(res).build()),
+            data: Some(
+                InteractionResponseDataBuilder::new()
+                    .content(format!("```ansi\n{res}\n```"))
+                    .build(),
+            ),
         }))
     }
 
