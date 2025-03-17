@@ -55,7 +55,7 @@ impl GuestExecutor for Executor {
 
         let output = res.into_value(Span::unknown()).unwrap();
         let output = output.into_string().unwrap();
-        format!("```ansi\n{output}\n```")
+        output
     }
 }
 

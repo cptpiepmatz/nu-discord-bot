@@ -75,6 +75,7 @@ pub async fn run(mut rx: tokio::sync::mpsc::Receiver<ExecuteParams>) -> ! {
         let res = guest
             .call_execute(&mut store, executor, &fname, &source, file.as_deref())
             .expect("execute failed");
+        dbg!(&res);
         res_tx.send(res).expect("sending execute response failed");
     }
 }
