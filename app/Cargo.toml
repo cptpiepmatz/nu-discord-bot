@@ -18,3 +18,4 @@ tokio.workspace = true
 twilight-http.workspace = true
 twilight-model.workspace = true
 wasmtime.workspace = true
+wasmtime-wasi.workspace = true

@@ -15,13 +15,8 @@ impl GuestExecutor for Executor {
         Self
     }
 
-    fn execute(
-        &self,
-        fname: String,
-        source: String,
-        file: Option<Vec<u8>>,
-    ) -> String {
-        todo!()
+    fn execute(&self, fname: String, source: String, file: Option<Vec<u8>>) -> String {
+        format!("trying to execute: {source}")
     }
 }
 

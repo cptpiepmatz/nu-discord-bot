@@ -32,4 +32,5 @@ twilight-http = "0.16"
 twilight-model = "0.16"
 twilight-util = { version = "0.16", features = ["builder"] }
 wasmtime = "30"
+wasmtime-wasi = "30"
 wit-bindgen = "0.41"

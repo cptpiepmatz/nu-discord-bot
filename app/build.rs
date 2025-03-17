@@ -43,7 +43,7 @@ fn compile_wasm() {
         .status()
         .unwrap();
 
-        if !status.success() {
-            panic!("Could not compile WASM library");
-        }
+    if !status.success() {
+        panic!("Could not compile WASM library");
+    }
 }
