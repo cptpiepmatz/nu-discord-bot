@@ -9,6 +9,7 @@ use twilight_model::{
     application::interaction::{
         Interaction, InteractionData, InteractionType, application_command::CommandOptionValue,
     },
+    gateway::presence::Status,
     http::interaction::{InteractionResponse, InteractionResponseType},
 };
 use twilight_util::builder::InteractionResponseDataBuilder;
@@ -27,7 +28,7 @@ impl DiscordHandler {
     pub async fn handle_interaction(
         &self,
         interaction: Json<Interaction>,
-    ) -> anyhow::Result<Response> {
+    ) -> axum::response::Result<Json<InteractionResponse>> {
         match interaction.kind {
             InteractionType::Ping => self.handle_ping().await,
             InteractionType::ApplicationCommand => {
@@ -36,63 +37,82 @@ impl DiscordHandler {
             InteractionType::MessageComponent => self.handle_message_component().await,
             InteractionType::ModalSubmit => self.handle_modal_submit().await,
             InteractionType::ApplicationCommandAutocomplete | _ => {
-                Err(StatusCode::UNPROCESSABLE_ENTITY)
+                Err(StatusCode::UNPROCESSABLE_ENTITY.into())
             }
         }
     }
 
-    async fn handle_ping(&self) -> anyhow::Result<Response> {
+    async fn handle_ping(&self) -> axum::response::Result<Json<InteractionResponse>> {
         Ok(Json(InteractionResponse {
             kind: InteractionResponseType::Pong,
             data: None,
-        })
-        .into_response())
+        }))
     }
 
     async fn handle_application_command(
         &self,
         interaction: Json<Interaction>,
-    ) -> anyhow::Result<Response> {
-        let data = interaction
-            .0
-            .data
-            .ok_or_else(|| anyhow!("application command should have data"))?;
+    ) -> axum::response::Result<Json<InteractionResponse>> {
+        let data = interaction.0.data.ok_or_else(|| {
+            (
+                StatusCode::BAD_REQUEST,
+                "application command should have data",
+            )
+        })?;
         let InteractionData::ApplicationCommand(data) = data else {
-            return Err(anyhow!(
-                "received interaction type application command but but got something else"
-            ));
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "received interaction type application command but but got something else",
+            )
+                .into());
         };
 
         let source = data
             .options
             .iter()
             .find(|option| option.name == "source")
-            .ok_or_else(|| anyhow!("source is required"))?;
+            .ok_or_else(|| (StatusCode::BAD_REQUEST, "source is required"))?;
         let CommandOptionValue::String(ref source) = source.value else {
-            return Err(anyhow!("source option is expected to be a string"));
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "source option is expected to be a string",
+            )
+                .into());
         };
 
         let file = match data.options.iter().find(|option| option.name == "file") {
             None => None,
             Some(file) => {
                 let CommandOptionValue::Attachment(file) = file.value else {
-                    return Err(anyhow!("file option is expected to be a string"));
+                    return Err((
+                        StatusCode::BAD_REQUEST,
+                        "file option is expected to be a string",
+                    )
+                        .into());
                 };
-                let resolved = data
-                    .resolved
-                    .ok_or_else(|| anyhow!("expected resolved, because file exists"))?;
+                let resolved = data.resolved.ok_or_else(|| {
+                    (
+                        StatusCode::BAD_REQUEST,
+                        "expected resolved, because file exists",
+                    )
+                })?;
                 let file = resolved
                     .attachments
                     .get(&file)
-                    .ok_or_else(|| anyhow!("file appeared in options"))?;
+                    .ok_or_else(|| (StatusCode::BAD_REQUEST, "file appeared in options"))?;
 
                 let file = self
                     .http_client
                     .get(&file.proxy_url)
                     .send()
                     .await
-                    .context("could not GET proxy url")?;
-                let file = file.bytes().await.context("could not read file bytes")?;
+                    .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "could not GET proxy url"))?;
+                let file = file.bytes().await.map_err(|_| {
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "could not read file bytes",
+                    )
+                })?;
                 Some(file)
             }
         };
@@ -106,7 +126,12 @@ impl DiscordHandler {
                 res_tx: req.0,
             })
             .await
-            .context("sending execute params failed")?;
+            .map_err(|_| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "sending execute params failed",
+                )
+            })?;
         let res = req.1.await.expect("receiving execute response failed");
         Ok(Json(InteractionResponse {
             kind: InteractionResponseType::ChannelMessageWithSource,
@@ -115,15 +140,14 @@ impl DiscordHandler {
                     .content(format!("```ansi\n{res}\n```"))
                     .build(),
             ),
-        })
-        .into_response())
+        }))
     }
 
-    async fn handle_message_component(&self) -> anyhow::Result<Response> {
+    async fn handle_message_component(&self) -> axum::response::Result<Json<InteractionResponse>> {
         todo!()
     }
 
-    async fn handle_modal_submit(&self) -> anyhow::Result<Response> {
+    async fn handle_modal_submit(&self) -> axum::response::Result<Json<InteractionResponse>> {
         todo!()
     }
 }

@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use exports::nu::discord_bot::nu::{Guest, GuestExecutor};
 
 wit_bindgen::generate!(in "../wit");
@@ -16,7 +18,15 @@ impl GuestExecutor for Executor {
     }
 
     fn execute(&self, fname: String, source: String, file: Option<Vec<u8>>) -> String {
-        format!("trying to execute: \u{001b}[0;32m{source}\u{001b}[0;0m")
+        let file: Cow<_> = match file {
+            Some(file) => match String::from_utf8(file) {
+                Ok(file) => file.into(),
+                Err(_) => "not utf-8".into(),
+            },
+            None => "no file".into(),
+        };
+
+        format!("trying to execute: \u{001b}[0;32m{source}\u{001b}[0;0m\n{file}")
     }
 }
 

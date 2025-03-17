@@ -51,6 +51,7 @@ async fn axum(#[shuttle_runtime::Secrets] secrets: SecretStore) -> shuttle_axum:
         execute_tx: req.0,
         client,
         interaction_client,
+        http_client: reqwest::Client::new(),
     });
     Ok(router.into())
 }
