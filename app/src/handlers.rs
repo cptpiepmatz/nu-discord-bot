@@ -101,12 +101,15 @@ impl DiscordHandler {
                     .get(&file)
                     .ok_or_else(|| (StatusCode::BAD_REQUEST, "file appeared in options"))?;
 
+                dbg!(file);
+
                 let file = self
                     .http_client
                     .get(&file.proxy_url)
                     .send()
                     .await
                     .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "could not GET proxy url"))?;
+                dbg!(&file);
                 let file = file.bytes().await.map_err(|_| {
                     (
                         StatusCode::INTERNAL_SERVER_ERROR,
@@ -116,6 +119,9 @@ impl DiscordHandler {
                 Some(file)
             }
         };
+
+        dbg!(&file);
+        dbg!(file.clone().map(|file| file.to_vec()).map(String::from_utf8));
 
         let req = tokio::sync::oneshot::channel();
         self.execute_tx
