@@ -2493,6 +2493,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
+ "bytes",
  "const-hex",
  "ed25519-dalek",
  "serde",
@@ -2503,6 +2504,7 @@ dependencies = [
  "tokio",
  "twilight-http",
  "twilight-model",
+ "twilight-util",
  "wasmtime",
  "wasmtime-wasi",
 ]

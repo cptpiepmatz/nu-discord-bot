@@ -1,5 +1,6 @@
 use anyhow::{Context, anyhow};
 use ed25519_dalek::VerifyingKey;
+use handlers::DiscordHandler;
 use middleware::VERIFY_KEY;
 use static_toml::static_toml;
 use twilight_model::id::{Id, marker::ApplicationMarker};
@@ -26,6 +27,10 @@ async fn axum() -> shuttle_axum::ShuttleAxum {
         .set(VerifyingKey::from_bytes(&PUBLIC_KEY).context("invalid verifying key")?)
         .map_err(|_| anyhow!("verify key somehow already set"))?;
 
-    let router = routes::create_router();
+    let req = tokio::sync::mpsc::channel(4);
+
+    tokio::spawn(nu::run(req.1));
+
+    let router = routes::create_router(DiscordHandler { execute_tx: req.0 });
     Ok(router.into())
 }

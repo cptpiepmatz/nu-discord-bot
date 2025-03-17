@@ -7,6 +7,7 @@ publish = false
 [dependencies]
 anyhow.workspace = true
 axum.workspace = true
+bytes.workspace = true
 const-hex.workspace = true
 ed25519-dalek.workspace = true
 serde.workspace = true
@@ -17,5 +18,6 @@ static-toml.workspace = true
 tokio.workspace = true
 twilight-http.workspace = true
 twilight-model.workspace = true
+twilight-util.workspace = true
 wasmtime.workspace = true
 wasmtime-wasi.workspace = true

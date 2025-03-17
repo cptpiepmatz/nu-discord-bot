@@ -1,18 +1,20 @@
-use crate::handlers::discord;
-use crate::middleware::validate_security_headers;
+use crate::{handlers::DiscordHandler, middleware::validate_security_headers};
 use axum::{
     Router,
     middleware::from_fn,
     routing::{get, post},
 };
 
-pub fn create_router() -> Router {
+pub fn create_router(discord_handler: DiscordHandler) -> Router {
+    let discord_handler =
+        async move |interaction| discord_handler.handle_interaction(interaction).await;
+
     Router::new()
         .route("/", get(info))
         .route("/info", get(info))
         .route(
             "/discord",
-            post(discord).layer(from_fn(validate_security_headers)),
+            post(discord_handler).layer(from_fn(validate_security_headers)),
         )
 }
 
