@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use bytes::Bytes;
 use wasmtime::{
     Engine, Store,
@@ -60,6 +62,8 @@ pub async fn run(mut rx: tokio::sync::mpsc::Receiver<ExecuteParams>) -> ! {
         .call_constructor(&mut store)
         .expect("could not construct executor");
 
+    println!("wasm loaded");
+
     loop {
         let params = rx.recv().await.expect("execution sender died");
         let ExecuteParams {
@@ -73,4 +77,18 @@ pub async fn run(mut rx: tokio::sync::mpsc::Receiver<ExecuteParams>) -> ! {
             .expect("execute failed");
         res_tx.send(res).expect("sending execute response failed");
     }
+}
+
+#[tokio::test]
+async fn test_run() {
+    let req = tokio::sync::mpsc::channel(1);
+    let run_handle = tokio::spawn(run(req.1));
+
+    let res = tokio::sync::oneshot::channel();
+    req.0.send(ExecuteParams { fname: "test".into(), source: "help commands".into(), file: None, res_tx: res.0 }).await.unwrap();
+
+    let res = res.1.await.unwrap();
+    assert!(!res.is_empty());
+
+    run_handle.abort();
 }
