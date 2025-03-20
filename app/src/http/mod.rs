@@ -14,13 +14,10 @@ use reqwest::StatusCode;
 use serde_json::json;
 use twilight_model::{
     application::interaction::{Interaction, InteractionType},
-    channel::message::{MessageFlags, embed::EmbedField},
+    channel::message::embed::EmbedField,
     http::interaction::{InteractionResponse, InteractionResponseType},
 };
-use twilight_util::builder::{
-    InteractionResponseDataBuilder,
-    embed::EmbedBuilder,
-};
+use twilight_util::builder::{InteractionResponseDataBuilder, embed::EmbedBuilder};
 
 #[derive(Debug, Clone)]
 pub struct HttpHandler {
@@ -140,7 +137,6 @@ impl HttpHandler {
         interaction: Json<Interaction>,
     ) -> Json<InteractionResponse> {
         if let Err(err) = self.interaction_tx.send(interaction.0).await {
-            const RED: u32 = 0xff0000;
             let embed = EmbedBuilder::new()
                 .title("⚠️ Interaction Handler Died")
                 .description(format!(
@@ -152,13 +148,12 @@ impl HttpHandler {
                     name: std::any::type_name_of_val(&err).to_string(),
                     value: err.to_string(),
                 })
-                .color(RED)
+                .color(crate::CONSTANTS.colors.red as u32)
                 .build();
 
             return Json(InteractionResponse {
                 kind: InteractionResponseType::ChannelMessageWithSource,
                 data: InteractionResponseDataBuilder::new()
-                    .flags(MessageFlags::EPHEMERAL)
                     .embeds([embed])
                     .build()
                     .into(),
