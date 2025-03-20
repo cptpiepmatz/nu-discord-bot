@@ -64,6 +64,7 @@ impl InteractionHandler {
                     .update_response(&interaction.token)
                     .embeds(Some(&[embed]))
                     .await?;
+                continue;
             }
 
             let (result_tx, result_rx) = tokio::sync::oneshot::channel();
