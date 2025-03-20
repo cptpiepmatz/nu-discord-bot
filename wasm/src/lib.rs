@@ -1,8 +1,8 @@
+use std::sync::Arc;
+
 use exports::nu::discord_bot::nu::{Guest, GuestExecutor};
 use nu_protocol::{
-    PipelineData, Span, Value,
-    debugger::WithoutDebug,
-    engine::{EngineState, Stack, StateWorkingSet},
+    debugger::WithoutDebug, engine::{self, EngineState, Stack, StateWorkingSet}, Config, PipelineData, Span, Value
 };
 
 wit_bindgen::generate!(in "../wit");
@@ -67,6 +67,21 @@ fn initial_engine_state() -> EngineState {
     let engine_state = nu_cmd_lang::create_default_context();
     let engine_state = nu_command::add_shell_command_context(engine_state);
     let engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
+
+    let engine_state = configure_engine_state(engine_state);
+
+    engine_state
+}
+
+fn configure_engine_state(mut engine_state: EngineState) -> EngineState {
+    engine_state.history_enabled = false;
+    engine_state.is_interactive = false;
+    engine_state.is_login = false;
+
+    engine_state.config = Arc::new(Config {
+        use_ansi_coloring: true.into(),
+        ..Default::default()
+    });
 
     engine_state
 }
