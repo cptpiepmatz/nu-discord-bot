@@ -1,7 +1,11 @@
 use std::borrow::Cow;
 
 use exports::nu::discord_bot::nu::{Guest, GuestExecutor};
-use nu_protocol::{debugger::WithoutDebug, engine::{EngineState, Stack, StateWorkingSet}, PipelineData, Span, Value};
+use nu_protocol::{
+    PipelineData, Span, Value,
+    debugger::WithoutDebug,
+    engine::{EngineState, Stack, StateWorkingSet},
+};
 
 wit_bindgen::generate!(in "../wit");
 
@@ -45,7 +49,7 @@ impl GuestExecutor for Executor {
                 Ok(content) => Value::string(content, Span::unknown()),
                 Err(_) => Value::binary(file, Span::unknown()),
             },
-            None => Value::nothing(Span::unknown())
+            None => Value::nothing(Span::unknown()),
         };
         let input = PipelineData::Value(input, None);
 

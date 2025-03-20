@@ -103,12 +103,10 @@ impl DiscordHandler {
 
                 dbg!(file);
 
-                let file = self
-                    .http_client
-                    .get(&file.url)
-                    .send()
-                    .await
-                    .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "could not GET proxy url"))?;
+                let file =
+                    self.http_client.get(&file.url).send().await.map_err(|_| {
+                        (StatusCode::INTERNAL_SERVER_ERROR, "could not GET proxy url")
+                    })?;
                 dbg!(&file);
                 let file = file.bytes().await.map_err(|_| {
                     (

@@ -86,7 +86,15 @@ async fn test_run() {
     let run_handle = tokio::spawn(run(req.1));
 
     let res = tokio::sync::oneshot::channel();
-    req.0.send(ExecuteParams { fname: "test".into(), source: "help commands".into(), file: None, res_tx: res.0 }).await.unwrap();
+    req.0
+        .send(ExecuteParams {
+            fname: "test".into(),
+            source: "help commands".into(),
+            file: None,
+            res_tx: res.0,
+        })
+        .await
+        .unwrap();
 
     let res = res.1.await.unwrap();
     assert!(!res.is_empty());
