@@ -29,7 +29,7 @@ impl GuestExecutor for Executor {
     }
 
     fn execute(&self, fname: String, source: String, file: Option<File>) -> String {
-        let source = format!("{source} | table");
+        let source = format!("{source} | table --expand");
         let source = source.as_bytes();
         let mut engine_state = self.engine_state.clone();
         let mut stack = self.stack.clone();
