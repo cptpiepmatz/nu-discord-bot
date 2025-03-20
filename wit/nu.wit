@@ -1,13 +1,18 @@
 package nu:discord-bot;
 
 interface nu {
+  variant file {
+    text(string),
+    bytes(list<u8>)
+  }
+
   resource executor {
     constructor();
     
     execute: func(
       fname: string, 
       source: string, 
-      file: option<list<u8>>
+      file: option<file>
     ) -> string;
   }
 }

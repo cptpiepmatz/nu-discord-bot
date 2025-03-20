@@ -186,6 +186,7 @@ impl InteractionHandler {
 
         Ok(ExecuteParams {
             result_tx,
+            fname: "something".into(),
             source: source.to_owned(),
             file,
         })

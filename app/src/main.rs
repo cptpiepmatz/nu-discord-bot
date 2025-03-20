@@ -8,8 +8,6 @@ use twilight_model::id::{
     marker::{ApplicationMarker, UserMarker},
 };
 
-mod nu;
-
 mod executor;
 mod http;
 mod interaction;

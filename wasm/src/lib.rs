@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use exports::nu::discord_bot::nu::{Guest, GuestExecutor};
 use nu_protocol::{
     PipelineData, Span, Value,
@@ -20,6 +18,8 @@ struct Executor {
     stack: Stack,
 }
 
+type File = exports::nu::discord_bot::nu::File;
+
 impl GuestExecutor for Executor {
     fn new() -> Self {
         Self {
@@ -28,7 +28,7 @@ impl GuestExecutor for Executor {
         }
     }
 
-    fn execute(&self, fname: String, source: String, file: Option<Vec<u8>>) -> String {
+    fn execute(&self, fname: String, source: String, file: Option<File>) -> String {
         let source = format!("{source} | table");
         let source = source.as_bytes();
         let mut engine_state = self.engine_state.clone();
@@ -45,10 +45,8 @@ impl GuestExecutor for Executor {
         }
 
         let input = match file {
-            Some(file) => match std::str::from_utf8(&file) {
-                Ok(content) => Value::string(content, Span::unknown()),
-                Err(_) => Value::binary(file, Span::unknown()),
-            },
+            Some(File::Text(text)) => Value::string(text, Span::unknown()),
+            Some(File::Bytes(bytes)) => Value::binary(bytes, Span::unknown()),
             None => Value::nothing(Span::unknown()),
         };
         let input = PipelineData::Value(input, None);
