@@ -3,7 +3,7 @@ use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
-use tracing::{error, instrument};
+use tracing::instrument;
 use twilight_http::{Client, client::InteractionClient};
 use twilight_model::{
     application::{

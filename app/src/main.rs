@@ -1,6 +1,6 @@
 use std::sync::{Arc, atomic::AtomicBool};
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use shuttle_runtime::SecretStore;
 use static_toml::static_toml;
 use twilight_model::id::{

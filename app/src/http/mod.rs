@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{Context, bail};
+use anyhow::Context;
 use axum::{
     Json,
     body::Body,
@@ -12,7 +12,7 @@ use axum::{
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use reqwest::StatusCode;
 use serde_json::json;
-use tracing::{error, instrument};
+use tracing::instrument;
 use twilight_model::{
     application::interaction::{Interaction, InteractionType},
     channel::message::embed::EmbedField,

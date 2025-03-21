@@ -3,9 +3,9 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
-use anyhow::{Context, anyhow, bail};
+use anyhow::{Context, anyhow};
 use bytes::Bytes;
-use tracing::{debug, error, info, instrument};
+use tracing::{debug, info, instrument};
 use wasmtime::{
     Engine, Store,
     component::{Component, Linker},
