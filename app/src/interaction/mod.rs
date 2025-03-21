@@ -19,7 +19,7 @@ use twilight_util::builder::{
     embed::EmbedBuilder,
 };
 
-use crate::executor::{ExecuteParams, ExecuteParamsFile, ExecuteResult};
+use crate::{error_and_bail, executor::{ExecuteParams, ExecuteParamsFile, ExecuteResult}};
 
 #[derive(Debug)]
 pub struct InteractionHandler {
@@ -144,8 +144,7 @@ impl InteractionHandler {
             };
         }
 
-        error!("Interaction Handler stopped");
-        bail!("Interaction Handler stopped.")
+        error_and_bail!("Interaction Handler stopped")
     }
 
     async fn register_commands(interaction_client: &InteractionClient<'_>) -> anyhow::Result<()> {

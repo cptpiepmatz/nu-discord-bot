@@ -87,3 +87,12 @@ impl shuttle_runtime::Service for App {
 }
 
 enum Never {}
+
+macro_rules! error_and_bail {
+    ($msg:literal) => {
+        tracing::error!($msg);
+        anyhow::bail!($msg) 
+    };
+}
+
+pub(crate) use error_and_bail;

@@ -20,6 +20,8 @@ use twilight_model::{
 use twilight_util::builder::{InteractionResponseDataBuilder, embed::EmbedBuilder};
 use tracing::{error, instrument};
 
+use crate::error_and_bail;
+
 #[derive(Debug, Clone)]
 pub struct HttpHandler {
     verification_key: VerifyingKey,
@@ -62,8 +64,7 @@ impl HttpHandler {
         let listener = tokio::net::TcpListener::bind(addr).await?;
         axum::serve(listener, router).await?;
 
-        error!("HTTP Server stopped");
-        bail!("HTTP Server stopped.")
+        error_and_bail!("HTTP Server stopped")
     }
 
     async fn info() -> impl axum::response::IntoResponse {

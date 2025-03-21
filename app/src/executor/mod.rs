@@ -6,6 +6,8 @@ use wasmtime::{component::{Component, Linker}, Engine, Store};
 use wasmtime_wasi::{IoView, ResourceTable, WasiCtx, WasiView};
 use tracing::{info, debug, error, instrument};
 
+use crate::error_and_bail;
+
 wasmtime::component::bindgen!(in "../wit");
 
 #[cfg(debug_assertions)]
@@ -93,8 +95,7 @@ impl NuExecutor {
             result_tx.send(res).map_err(|_| anyhow!("could not send execute results"))?;
         }
 
-        error!("Nu Executor stopped");
-        bail!("Nu Executor stopped.")
+        error_and_bail!("Nu Executor stopped")
     }
 }
 
