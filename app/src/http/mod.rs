@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::Context;
+use anyhow::{Context, bail};
 use axum::{
     Json,
     body::Body,
@@ -18,6 +18,7 @@ use twilight_model::{
     http::interaction::{InteractionResponse, InteractionResponseType},
 };
 use twilight_util::builder::{InteractionResponseDataBuilder, embed::EmbedBuilder};
+use tracing::{error, instrument};
 
 #[derive(Debug, Clone)]
 pub struct HttpHandler {
@@ -34,6 +35,7 @@ impl HttpHandler {
         })
     }
 
+    #[instrument(name = "http", skip_all)]
     pub async fn bind(self, addr: std::net::SocketAddr) -> anyhow::Result<crate::Never> {
         let http_handler = Arc::new(self);
 
@@ -59,7 +61,9 @@ impl HttpHandler {
 
         let listener = tokio::net::TcpListener::bind(addr).await?;
         axum::serve(listener, router).await?;
-        panic!("HTTP Server stopped.");
+
+        error!("HTTP Server stopped");
+        bail!("HTTP Server stopped.")
     }
 
     async fn info() -> impl axum::response::IntoResponse {

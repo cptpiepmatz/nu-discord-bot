@@ -1,10 +1,10 @@
 use std::sync::{atomic::{AtomicBool, Ordering}, Arc};
 
-use anyhow::{anyhow, Context};
+use anyhow::{anyhow, Context, bail};
 use bytes::Bytes;
 use wasmtime::{component::{Component, Linker}, Engine, Store};
 use wasmtime_wasi::{IoView, ResourceTable, WasiCtx, WasiView};
-use tracing::{info, debug};
+use tracing::{info, debug, error, instrument};
 
 wasmtime::component::bindgen!(in "../wit");
 
@@ -15,11 +15,13 @@ static WASM_BYTES: &[u8] =
 static WASM_BYTES: &[u8] =
     include_bytes!("../../../target/wasm/wasm32-wasip2/release/nu_discord_bot_wasm.wasm");
 
+#[derive(Debug)]
 pub struct NuExecutor {
     wasm_ready: Arc<AtomicBool>,
     execute_rx: tokio::sync::mpsc::Receiver<ExecuteParams>,
 }
 
+#[derive(Debug)]
 pub struct ExecuteParams {
     pub result_tx: tokio::sync::oneshot::Sender<ExecuteResult>,
     pub fname: String,
@@ -27,6 +29,7 @@ pub struct ExecuteParams {
     pub file: Option<ExecuteParamsFile>,
 }
 
+#[derive(Debug)]
 pub enum ExecuteParamsFile {
     Bytes(Bytes),
     Text(String),
@@ -55,6 +58,7 @@ impl NuExecutor {
         }
     }
 
+    #[instrument(name = "executor", skip_all)]
     pub async fn run(mut self) -> anyhow::Result<crate::Never> {
         let ctx = Ctx {
             table: ResourceTable::new(),
@@ -89,7 +93,8 @@ impl NuExecutor {
             result_tx.send(res).map_err(|_| anyhow!("could not send execute results"))?;
         }
 
-        panic!("Nu Executor stopped.");
+        error!("Nu Executor stopped");
+        bail!("Nu Executor stopped.")
     }
 }
 

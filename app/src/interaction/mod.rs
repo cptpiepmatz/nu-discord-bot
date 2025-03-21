@@ -2,7 +2,7 @@ use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
-
+use tracing::{error, instrument};
 use anyhow::{Context, bail, ensure};
 use twilight_http::{Client, client::InteractionClient};
 use twilight_model::{
@@ -21,6 +21,7 @@ use twilight_util::builder::{
 
 use crate::executor::{ExecuteParams, ExecuteParamsFile, ExecuteResult};
 
+#[derive(Debug)]
 pub struct InteractionHandler {
     discord_token: String,
     interaction_rx: tokio::sync::mpsc::Receiver<Interaction>,
@@ -45,6 +46,7 @@ impl InteractionHandler {
         }
     }
 
+    #[instrument(name = "interaction", skip_all)]
     pub async fn run(mut self) -> anyhow::Result<crate::Never> {
         let client = Client::new(std::mem::take(&mut self.discord_token));
         let interaction_client = client.interaction(crate::APPLICATION_ID);
@@ -142,7 +144,8 @@ impl InteractionHandler {
             };
         }
 
-        panic!("Interaction Handler stopped.");
+        error!("Interaction Handler stopped");
+        bail!("Interaction Handler stopped.")
     }
 
     async fn register_commands(interaction_client: &InteractionClient<'_>) -> anyhow::Result<()> {
