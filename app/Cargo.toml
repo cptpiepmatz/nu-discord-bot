@@ -17,6 +17,7 @@ shuttle-axum.workspace = true
 shuttle-runtime.workspace = true
 static-toml.workspace = true
 tokio.workspace = true
+tracing.workspace = true
 twilight-http.workspace = true
 twilight-model.workspace = true
 twilight-util.workspace = true

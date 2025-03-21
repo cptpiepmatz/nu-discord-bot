@@ -30,9 +30,10 @@ shuttle-axum = "0.53"
 shuttle-runtime = "0.53"
 static-toml = "1.3"
 tokio = { version = "1", features = ["rt", "macros"] }
+tracing = "0.1"
 twilight-http = "0.16"
 twilight-model = "0.16"
 twilight-util = { version = "0.16", features = ["builder"] }
-wasmtime = "30"
-wasmtime-wasi = "30"
+wasmtime = "31"
+wasmtime-wasi = "31"
 wit-bindgen = "0.41"

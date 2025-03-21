@@ -4,6 +4,7 @@ use anyhow::{anyhow, Context};
 use bytes::Bytes;
 use wasmtime::{component::{Component, Linker}, Engine, Store};
 use wasmtime_wasi::{IoView, ResourceTable, WasiCtx, WasiView};
+use tracing::{info, debug};
 
 wasmtime::component::bindgen!(in "../wit");
 
@@ -61,10 +62,12 @@ impl NuExecutor {
         };
 
         let engine = Engine::default();
+        debug!("Compiling component");
         let component = Component::from_binary(&engine, WASM_BYTES).context("could not compile component")?;
 
         let mut store = Store::new(&engine, ctx);
         let mut linker = Linker::new(&engine);
+        debug!("Linking WASI");
         wasmtime_wasi::add_to_linker_sync(&mut linker).context("could not link against wasi")?;
 
         let world = Bot::instantiate(&mut store, &component, &mut linker).context("could not instantiate world")?;
@@ -73,6 +76,7 @@ impl NuExecutor {
         let executor = guest.call_constructor(&mut store).context("could not construct executor")?;
 
         self.wasm_ready.store(true, Ordering::Relaxed);
+        info!("WASM ready");
 
         while let Some(params) = self.execute_rx.recv().await {
             let ExecuteParams {
