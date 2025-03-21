@@ -64,7 +64,7 @@ impl HttpHandler {
         let listener = tokio::net::TcpListener::bind(addr).await?;
         axum::serve(listener, router).await?;
 
-        error_and_bail!("HTTP Server stopped")
+        error_and_bail!("HTTP Server stopped");
     }
 
     async fn info() -> impl axum::response::IntoResponse {

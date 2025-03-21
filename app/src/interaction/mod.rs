@@ -163,7 +163,7 @@ impl InteractionHandler {
             };
         }
 
-        error_and_bail!("Interaction Handler stopped")
+        error_and_bail!("Interaction Handler stopped");
     }
 
     async fn register_commands(interaction_client: &InteractionClient<'_>) -> anyhow::Result<()> {

@@ -113,7 +113,7 @@ impl NuExecutor {
                 .map_err(|_| anyhow!("could not send execute results"))?;
         }
 
-        error_and_bail!("Nu Executor stopped")
+        error_and_bail!("Nu Executor stopped");
     }
 }
 
