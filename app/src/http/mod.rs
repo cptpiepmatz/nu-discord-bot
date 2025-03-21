@@ -12,13 +12,13 @@ use axum::{
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use reqwest::StatusCode;
 use serde_json::json;
+use tracing::{error, instrument};
 use twilight_model::{
     application::interaction::{Interaction, InteractionType},
     channel::message::embed::EmbedField,
     http::interaction::{InteractionResponse, InteractionResponseType},
 };
 use twilight_util::builder::{InteractionResponseDataBuilder, embed::EmbedBuilder};
-use tracing::{error, instrument};
 
 use crate::error_and_bail;
 

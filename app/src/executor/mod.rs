@@ -1,10 +1,16 @@
-use std::sync::{atomic::{AtomicBool, Ordering}, Arc};
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
-use anyhow::{anyhow, Context, bail};
+use anyhow::{Context, anyhow, bail};
 use bytes::Bytes;
-use wasmtime::{component::{Component, Linker}, Engine, Store};
+use tracing::{debug, error, info, instrument};
+use wasmtime::{
+    Engine, Store,
+    component::{Component, Linker},
+};
 use wasmtime_wasi::{IoView, ResourceTable, WasiCtx, WasiView};
-use tracing::{info, debug, error, instrument};
 
 use crate::error_and_bail;
 
@@ -69,17 +75,21 @@ impl NuExecutor {
 
         let engine = Engine::default();
         debug!("Compiling component");
-        let component = Component::from_binary(&engine, WASM_BYTES).context("could not compile component")?;
+        let component =
+            Component::from_binary(&engine, WASM_BYTES).context("could not compile component")?;
 
         let mut store = Store::new(&engine, ctx);
         let mut linker = Linker::new(&engine);
         debug!("Linking WASI");
         wasmtime_wasi::add_to_linker_sync(&mut linker).context("could not link against wasi")?;
 
-        let world = Bot::instantiate(&mut store, &component, &mut linker).context("could not instantiate world")?;
+        let world = Bot::instantiate(&mut store, &component, &mut linker)
+            .context("could not instantiate world")?;
         let guest = world.nu_discord_bot_nu().executor();
 
-        let executor = guest.call_constructor(&mut store).context("could not construct executor")?;
+        let executor = guest
+            .call_constructor(&mut store)
+            .context("could not construct executor")?;
 
         self.wasm_ready.store(true, Ordering::Relaxed);
         info!("WASM ready");
@@ -89,10 +99,18 @@ impl NuExecutor {
                 fname,
                 source,
                 file,
-                result_tx
+                result_tx,
             } = params;
-            let res = guest.call_execute(&mut store, executor, &fname, &source, file.map(Into::into).as_ref());
-            result_tx.send(res).map_err(|_| anyhow!("could not send execute results"))?;
+            let res = guest.call_execute(
+                &mut store,
+                executor,
+                &fname,
+                &source,
+                file.map(Into::into).as_ref(),
+            );
+            result_tx
+                .send(res)
+                .map_err(|_| anyhow!("could not send execute results"))?;
         }
 
         error_and_bail!("Nu Executor stopped")

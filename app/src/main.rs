@@ -1,6 +1,6 @@
 use std::sync::{Arc, atomic::AtomicBool};
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use shuttle_runtime::SecretStore;
 use static_toml::static_toml;
 use twilight_model::id::{
@@ -91,7 +91,7 @@ enum Never {}
 macro_rules! error_and_bail {
     ($msg:literal) => {
         tracing::error!($msg);
-        anyhow::bail!($msg) 
+        anyhow::bail!($msg)
     };
 }
 

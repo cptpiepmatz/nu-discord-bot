@@ -1,9 +1,9 @@
+use anyhow::{Context, bail, ensure};
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
 use tracing::{error, instrument};
-use anyhow::{Context, bail, ensure};
 use twilight_http::{Client, client::InteractionClient};
 use twilight_model::{
     application::{
@@ -19,7 +19,10 @@ use twilight_util::builder::{
     embed::EmbedBuilder,
 };
 
-use crate::{error_and_bail, executor::{ExecuteParams, ExecuteParamsFile, ExecuteResult}};
+use crate::{
+    error_and_bail,
+    executor::{ExecuteParams, ExecuteParamsFile, ExecuteResult},
+};
 
 #[derive(Debug)]
 pub struct InteractionHandler {
@@ -101,10 +104,26 @@ impl InteractionHandler {
 
             match result_rx.await {
                 Ok(Ok(res)) => {
-                    interaction_client
-                        .update_response(&interaction.token)
-                        .content(Some(&format!("```ansi\n{res}\n```")))
-                        .await?;
+                    let content = format!("```ansi\n{res}\n```");
+                    match content.len() {
+                        0..=2000 => {
+                            interaction_client
+                                .update_response(&interaction.token)
+                                .content(Some(&content))
+                                .await?;
+                        }
+                        len => {
+                            let embed = EmbedBuilder::new()
+                            .title("⚠️ Result Too Long")
+                            .description(format!("The result is {len} characters long — that's over Discord's 2000 character limit. Try adjusting your pipeline to make the output smaller."))
+                            .color(crate::CONSTANTS.colors.yellow as u32)
+                            .build();
+                            interaction_client
+                                .update_response(&interaction.token)
+                                .embeds(Some(&[embed]))
+                                .await?;
+                        }
+                    };
                 }
                 Ok(Err(err)) => {
                     let embed = EmbedBuilder::new()
@@ -136,11 +155,11 @@ impl InteractionHandler {
                     })
                     .color(crate::CONSTANTS.colors.red as u32)
                     .build();
-                interaction_client
-                    .update_response(&interaction.token)
-                    .embeds(Some(&[embed]))
-                    .await?;
-                },
+                    interaction_client
+                        .update_response(&interaction.token)
+                        .embeds(Some(&[embed]))
+                        .await?;
+                }
             };
         }
 

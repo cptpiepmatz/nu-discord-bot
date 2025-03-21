@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use exports::nu::discord_bot::nu::{Guest, GuestExecutor};
 use nu_protocol::{
-    debugger::WithoutDebug, engine::{self, EngineState, Stack, StateWorkingSet}, Config, PipelineData, Span, Value
+    Config, PipelineData, Span, Value,
+    debugger::WithoutDebug,
+    engine::{self, EngineState, Stack, StateWorkingSet},
 };
 
 wit_bindgen::generate!(in "../wit");
