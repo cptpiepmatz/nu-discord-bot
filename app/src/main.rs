@@ -1,6 +1,6 @@
 use std::sync::{Arc, atomic::AtomicBool};
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use shuttle_runtime::SecretStore;
 use static_toml::static_toml;
 use twilight_model::id::{
@@ -68,9 +68,20 @@ impl shuttle_runtime::Service for App {
         let executor = tokio::spawn(self.executor.run());
 
         Err(tokio::select! {
-            Err(err) = http => anyhow::Error::new(err).context("HTTP task panicked or was cancelled"),
-            Err(err) = interaction => anyhow::Error::new(err).context("Interaction task panicked or was cancelled"),
-            Err(err) = executor => anyhow::Error::new(err).context("Executor task panicked or was cancelled"),
+            res = http => match res {
+                Ok(Err(err)) => err,
+                Err(err) => anyhow::Error::new(err).context("could not join HTTP task"),
+            },
+
+            res = interaction => match res {
+                Ok(Err(err)) => err,
+                Err(err) => anyhow::Error::new(err).context("could not join Interaction Handler task"),
+            },
+
+            res = executor => match res {
+                Ok(Err(err)) => err,
+                Err(err) => anyhow::Error::new(err).context("could not join Nu Executor task"),
+            }
         }.into())
     }
 }
