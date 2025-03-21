@@ -105,8 +105,8 @@ impl InteractionHandler {
             match result_rx.await {
                 Ok(Ok(res)) => {
                     let content = format!("```ansi\n{res}\n```");
-                    match content.len() {
-                        0..=2000 => {
+                    match content.chars().count() {
+                        ..=2000 => {
                             interaction_client
                                 .update_response(&interaction.token)
                                 .content(Some(&content))
