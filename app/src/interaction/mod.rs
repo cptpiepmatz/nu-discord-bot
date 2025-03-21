@@ -104,8 +104,41 @@ impl InteractionHandler {
                         .content(Some(&format!("```ansi\n{res}\n```")))
                         .await?;
                 }
-                Ok(Err(err)) => todo!("update message with err"),
-                Err(err) => todo!("throw an error here"),
+                Ok(Err(err)) => {
+                    let embed = EmbedBuilder::new()
+                        .title("⚠️ Error During Nu Execution")
+                        .description("An error while executing pipeline occurred.")
+                        .field(EmbedField {
+                            inline: false,
+                            name: std::any::type_name_of_val(err.root_cause()).to_string(),
+                            value: err.to_string(),
+                        })
+                        .color(crate::CONSTANTS.colors.yellow as u32)
+                        .build();
+                    interaction_client
+                        .update_response(&interaction.token)
+                        .embeds(Some(&[embed]))
+                        .await?;
+                }
+                Err(err) => {
+                    let embed = EmbedBuilder::new()
+                    .title("⚠️ Error Receiving Results")
+                    .description(format!(
+                        "An error occurred while receiving the pipeline result.\nReport this to <@{}>.",
+                        crate::SUPPORT_USER_ID
+                    ))
+                    .field(EmbedField {
+                        inline: false,
+                        name: std::any::type_name_of_val(&err).to_string(),
+                        value: err.to_string(),
+                    })
+                    .color(crate::CONSTANTS.colors.red as u32)
+                    .build();
+                interaction_client
+                    .update_response(&interaction.token)
+                    .embeds(Some(&[embed]))
+                    .await?;
+                },
             };
         }
 
