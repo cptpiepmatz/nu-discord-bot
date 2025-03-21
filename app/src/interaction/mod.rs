@@ -12,7 +12,7 @@ use twilight_model::{
             Interaction, InteractionData, InteractionType, application_command::CommandOptionValue,
         },
     },
-    channel::message::embed::EmbedField,
+    channel::message::{MessageFlags, embed::EmbedField},
 };
 use twilight_util::builder::{
     command::{AttachmentBuilder, CommandBuilder, StringBuilder},
@@ -58,17 +58,15 @@ impl InteractionHandler {
 
         while let Some(interaction) = self.interaction_rx.recv().await {
             if !self.wasm_ready.load(Ordering::Relaxed) {
-                let embed = EmbedBuilder::new()
-                    .title("⚠️ Nu Executor Not Ready Yet")
-                    .description(
-                        "The WASM runtime did not fully boot up yet.\nWait a bit and try again later."
-                    )
-                    .color(crate::CONSTANTS.colors.yellow as u32)
-                    .build();
-                interaction_client
-                    .update_response(&interaction.token)
-                    .embeds(Some(&[embed]))
-                    .await?;
+                self.report(
+                    &interaction_client,
+                    &interaction.token,
+                    "⚠️ Nu Executor Not Ready Yet",
+                    "The WASM runtime did not fully boot up yet.\nWait a bit and try again later.",
+                    crate::CONSTANTS.colors.yellow as u32,
+                    None,
+                )
+                .await?;
                 continue;
             }
 
@@ -76,23 +74,21 @@ impl InteractionHandler {
             let execute_params = match self.extract_execute_params(&interaction, result_tx).await {
                 Ok(params) => params,
                 Err(err) => {
-                    let embed = EmbedBuilder::new()
-                        .title("⚠️ Invalid Interaction Options")
-                        .description(format!(
+                    self.report(
+                        &interaction_client,
+                        &interaction.token,
+                        "⚠️ Invalid Interaction Options",
+                        format!(
                             "Discord sent invalid interaction options.\nReport this to <@{}>.",
                             crate::SUPPORT_USER_ID
-                        ))
-                        .field(EmbedField {
-                            inline: false,
-                            name: std::any::type_name_of_val(err.root_cause()).to_string(),
-                            value: err.to_string(),
-                        })
-                        .color(crate::CONSTANTS.colors.red as u32)
-                        .build();
-                    interaction_client
-                        .update_response(&interaction.token)
-                        .embeds(Some(&[embed]))
-                        .await?;
+                        ),
+                        crate::CONSTANTS.colors.red as u32,
+                        (
+                            std::any::type_name_of_val(err.root_cause()).to_string(),
+                            err.to_string(),
+                        ),
+                    )
+                    .await?;
                     continue;
                 }
             };
@@ -113,52 +109,43 @@ impl InteractionHandler {
                                 .await?;
                         }
                         len => {
-                            let embed = EmbedBuilder::new()
-                            .title("⚠️ Result Too Long")
-                            .description(format!("The result is {len} characters long — that's over Discord's 2000 character limit. Try adjusting your pipeline to make the output smaller."))
-                            .color(crate::CONSTANTS.colors.yellow as u32)
-                            .build();
-                            interaction_client
-                                .update_response(&interaction.token)
-                                .embeds(Some(&[embed]))
-                                .await?;
+                            self.report(
+                                &interaction_client,
+                                &interaction.token,
+                                "⚠️ Result Too Long",
+                                format!("The result is {len} characters long — that's over Discord's 2000 character limit. Try adjusting your pipeline to make the output smaller."),
+                                crate::CONSTANTS.colors.yellow as u32,
+                                None
+                            ).await?;
                         }
                     };
                 }
                 Ok(Err(err)) => {
-                    let embed = EmbedBuilder::new()
-                        .title("⚠️ Error During Nu Execution")
-                        .description("An error while executing pipeline occurred.")
-                        .field(EmbedField {
-                            inline: false,
-                            name: std::any::type_name_of_val(err.root_cause()).to_string(),
-                            value: err.to_string(),
-                        })
-                        .color(crate::CONSTANTS.colors.yellow as u32)
-                        .build();
-                    interaction_client
-                        .update_response(&interaction.token)
-                        .embeds(Some(&[embed]))
-                        .await?;
+                    self.report(
+                        &interaction_client,
+                        &interaction.token,
+                        "⚠️ Error During Nu Execution",
+                        "An error while executing pipeline occurred.",
+                        crate::CONSTANTS.colors.yellow as u32,
+                        (
+                            std::any::type_name_of_val(err.root_cause()).to_string(),
+                            err.to_string(),
+                        ),
+                    )
+                    .await?;
                 }
                 Err(err) => {
-                    let embed = EmbedBuilder::new()
-                    .title("⚠️ Error Receiving Results")
-                    .description(format!(
-                        "An error occurred while receiving the pipeline result.\nReport this to <@{}>.",
-                        crate::SUPPORT_USER_ID
-                    ))
-                    .field(EmbedField {
-                        inline: false,
-                        name: std::any::type_name_of_val(&err).to_string(),
-                        value: err.to_string(),
-                    })
-                    .color(crate::CONSTANTS.colors.red as u32)
-                    .build();
-                    interaction_client
-                        .update_response(&interaction.token)
-                        .embeds(Some(&[embed]))
-                        .await?;
+                    self.report(
+                        &interaction_client,
+                        &interaction.token,
+                        "⚠️ Error Receiving Results",
+                        format!(
+                            "An error occurred while receiving the pipeline result.\nReport this to <@{}>.",
+                            crate::SUPPORT_USER_ID
+                        ),
+                        crate::CONSTANTS.colors.red as u32,
+                        (std::any::type_name_of_val(&err).to_string(), err.to_string())
+                    ).await?;
                 }
             };
         }
@@ -245,5 +232,38 @@ impl InteractionHandler {
             source: source.to_owned(),
             file,
         })
+    }
+
+    async fn report(
+        &self,
+        client: &InteractionClient<'_>,
+        token: &str,
+        title: &str,
+        description: impl Into<String>,
+        color: u32,
+        field: impl Into<Option<(String, String)>>,
+    ) -> anyhow::Result<()> {
+        let mut embed = EmbedBuilder::new()
+            .title(title)
+            .description(description)
+            .color(color);
+
+        if let Some((name, value)) = field.into() {
+            embed = embed.field(EmbedField {
+                inline: false,
+                name: name.to_string(),
+                value: value.to_string(),
+            });
+        }
+
+        client.delete_response(token).await?;
+
+        client
+            .create_followup(token)
+            .flags(MessageFlags::EPHEMERAL)
+            .embeds(&[embed.build()])
+            .await?;
+
+        Ok(())
     }
 }
