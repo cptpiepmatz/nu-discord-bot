@@ -3,7 +3,7 @@ use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
-use tracing::instrument;
+use tracing::{instrument, warn};
 use twilight_http::{Client, client::InteractionClient};
 use twilight_model::{
     application::{
@@ -54,7 +54,9 @@ impl InteractionHandler {
         let client = Client::new(std::mem::take(&mut self.discord_token));
         let interaction_client = client.interaction(crate::APPLICATION_ID);
 
-        InteractionHandler::register_commands(&interaction_client).await?;
+        InteractionHandler::register_commands(&interaction_client)
+            .await
+            .context("Failed to register interaction commands")?;
 
         while let Some(interaction) = self.interaction_rx.recv().await {
             if !self.wasm_ready.load(Ordering::Relaxed) {
@@ -66,7 +68,8 @@ impl InteractionHandler {
                     crate::CONSTANTS.colors.yellow as u32,
                     None,
                 )
-                .await?;
+                .await
+                .context("Failed to report Nu Executor Not Ready")?;
                 continue;
             }
 
@@ -85,10 +88,11 @@ impl InteractionHandler {
                         crate::CONSTANTS.colors.red as u32,
                         (
                             std::any::type_name_of_val(err.root_cause()).to_string(),
-                            err.to_string(),
+                            Self::fmt_anyhow_error(&err),
                         ),
                     )
-                    .await?;
+                    .await
+                    .context("Failed to report invalid interaction options")?;
                     continue;
                 }
             };
@@ -96,7 +100,7 @@ impl InteractionHandler {
             self.execute_tx
                 .send(execute_params)
                 .await
-                .context("could not send execute params")?;
+                .context("Failed to send execute parameters")?;
 
             match result_rx.await {
                 Ok(Ok(res)) => {
@@ -106,17 +110,22 @@ impl InteractionHandler {
                             interaction_client
                                 .update_response(&interaction.token)
                                 .content(Some(&content))
-                                .await?;
+                                .await
+                                .context("Failed to update response with result")?;
                         }
                         len => {
                             self.report(
                                 &interaction_client,
                                 &interaction.token,
                                 "⚠️ Result Too Long",
-                                format!("The result is {len} characters long — that's over Discord's 2000 character limit. Try adjusting your pipeline to make the output smaller."),
+                                format!(
+                                    "The result is {len} characters long — that's over Discord's 2000 character limit. Try adjusting your pipeline to make the output smaller."
+                                ),
                                 crate::CONSTANTS.colors.yellow as u32,
-                                None
-                            ).await?;
+                                None,
+                            )
+                            .await
+                            .context("Failed to report result too long")?;
                         }
                     };
                 }
@@ -129,10 +138,11 @@ impl InteractionHandler {
                         crate::CONSTANTS.colors.yellow as u32,
                         (
                             std::any::type_name_of_val(err.root_cause()).to_string(),
-                            err.to_string(),
+                            Self::fmt_anyhow_error(&err),
                         ),
                     )
-                    .await?;
+                    .await
+                    .context("Failed to report error during Nu execution")?;
                 }
                 Err(err) => {
                     self.report(
@@ -144,8 +154,10 @@ impl InteractionHandler {
                             crate::SUPPORT_USER_ID
                         ),
                         crate::CONSTANTS.colors.red as u32,
-                        (std::any::type_name_of_val(&err).to_string(), err.to_string())
-                    ).await?;
+                        (std::any::type_name_of_val(&err).to_string(), err.to_string()),
+                    )
+                    .await
+                    .context("Failed to report error receiving results")?;
                 }
             };
         }
@@ -256,14 +268,34 @@ impl InteractionHandler {
             });
         }
 
-        client.delete_response(token).await?;
-
-        client
-            .create_followup(token)
-            .flags(MessageFlags::EPHEMERAL)
-            .embeds(&[embed.build()])
-            .await?;
+        match embed.validate() {
+            Ok(embed) => {
+                client
+                    .update_response(token)
+                    .embeds(Some(&[embed.build()]))
+                    .await?
+            }
+            Err(err) => {
+                warn!("{err:?}");
+                client
+                    .update_response(token)
+                    .content(Some(&format!(
+                        "Something went wrong.\n-# Report that error to <#{}> if it occurs again.",
+                        crate::SUPPORT_USER_ID
+                    )))
+                    .await?
+            }
+        };
 
         Ok(())
+    }
+
+    fn fmt_anyhow_error(err: &anyhow::Error) -> String {
+        let formatted = format!("{err:?}");
+        formatted
+            .split("Stack backtrace")
+            .next()
+            .expect("is first")
+            .to_owned()
     }
 }

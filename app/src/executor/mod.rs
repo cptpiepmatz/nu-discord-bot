@@ -7,14 +7,17 @@ use anyhow::{Context, anyhow};
 use bytes::Bytes;
 use tracing::{debug, info, instrument};
 use wasmtime::{
-    Engine, Store,
+    Config, Engine, Store,
     component::{Component, Linker},
 };
 use wasmtime_wasi::{IoView, ResourceTable, WasiCtx, WasiView};
 
 use crate::error_and_bail;
 
-wasmtime::component::bindgen!(in "../wit");
+wasmtime::component::bindgen!({
+    path: "../wit",
+    async: true,
+});
 
 #[cfg(debug_assertions)]
 static WASM_BYTES: &[u8] =
@@ -73,7 +76,10 @@ impl NuExecutor {
             ctx: WasiCtx::builder().build(),
         };
 
-        let engine = Engine::default();
+        let mut config = Config::default();
+        let config = config.async_support(true);
+        let engine = Engine::new(config).context("could not create engine")?;
+
         debug!("Compiling component");
         let component =
             Component::from_binary(&engine, WASM_BYTES).context("could not compile component")?;
@@ -81,14 +87,16 @@ impl NuExecutor {
         let mut store = Store::new(&engine, ctx);
         let mut linker = Linker::new(&engine);
         debug!("Linking WASI");
-        wasmtime_wasi::add_to_linker_sync(&mut linker).context("could not link against wasi")?;
+        wasmtime_wasi::add_to_linker_async(&mut linker).context("could not link against wasi")?;
 
-        let world = Bot::instantiate(&mut store, &component, &mut linker)
+        let world = Bot::instantiate_async(&mut store, &component, &mut linker)
+            .await
             .context("could not instantiate world")?;
         let guest = world.nu_discord_bot_nu().executor();
 
         let executor = guest
             .call_constructor(&mut store)
+            .await
             .context("could not construct executor")?;
 
         self.wasm_ready.store(true, Ordering::Relaxed);
@@ -101,13 +109,15 @@ impl NuExecutor {
                 file,
                 result_tx,
             } = params;
-            let res = guest.call_execute(
-                &mut store,
-                executor,
-                &fname,
-                &source,
-                file.map(Into::into).as_ref(),
-            );
+            let res = guest
+                .call_execute(
+                    &mut store,
+                    executor,
+                    &fname,
+                    &source,
+                    file.map(Into::into).as_ref(),
+                )
+                .await;
             result_tx
                 .send(res)
                 .map_err(|_| anyhow!("could not send execute results"))?;

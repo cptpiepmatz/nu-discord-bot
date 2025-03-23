@@ -3,6 +3,7 @@ use std::sync::{Arc, atomic::AtomicBool};
 use anyhow::Context;
 use shuttle_runtime::SecretStore;
 use static_toml::static_toml;
+use tracing::error;
 use twilight_model::id::{
     Id,
     marker::{ApplicationMarker, UserMarker},
@@ -67,7 +68,7 @@ impl shuttle_runtime::Service for App {
         let interaction = tokio::spawn(self.interaction.run());
         let executor = tokio::spawn(self.executor.run());
 
-        Err(tokio::select! {
+        let err = tokio::select! {
             res = http => match res {
                 Ok(Err(err)) => err,
                 Err(err) => anyhow::Error::new(err).context("could not join HTTP task"),
@@ -82,7 +83,11 @@ impl shuttle_runtime::Service for App {
                 Ok(Err(err)) => err,
                 Err(err) => anyhow::Error::new(err).context("could not join Nu Executor task"),
             }
-        }.into())
+        };
+
+        error!("{err:?}");
+
+        Err(err.into())
     }
 }
 
