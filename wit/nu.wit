@@ -6,6 +6,17 @@ interface nu {
     bytes(list<u8>)
   }
 
+  variant execute-ok {
+    value(string),
+    error(string),
+  }
+
+  enum execute-error {
+    merge-delta,
+    into-value,
+    into-string,
+  }
+
   resource executor {
     constructor();
     
@@ -13,7 +24,7 @@ interface nu {
       fname: string, 
       source: string, 
       file: option<file>
-    ) -> string;
+    ) -> result<execute-ok, execute-error>;
   }
 }
 

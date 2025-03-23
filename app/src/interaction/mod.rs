@@ -12,7 +12,7 @@ use twilight_model::{
             Interaction, InteractionData, InteractionType, application_command::CommandOptionValue,
         },
     },
-    channel::message::{MessageFlags, embed::EmbedField},
+    channel::message::embed::EmbedField,
 };
 use twilight_util::builder::{
     command::{AttachmentBuilder, CommandBuilder, StringBuilder},
@@ -88,7 +88,7 @@ impl InteractionHandler {
                         crate::CONSTANTS.colors.red as u32,
                         (
                             std::any::type_name_of_val(err.root_cause()).to_string(),
-                            Self::fmt_anyhow_error(&err),
+                            err,
                         ),
                     )
                     .await
@@ -138,7 +138,7 @@ impl InteractionHandler {
                         crate::CONSTANTS.colors.yellow as u32,
                         (
                             std::any::type_name_of_val(err.root_cause()).to_string(),
-                            Self::fmt_anyhow_error(&err),
+                            err,
                         ),
                     )
                     .await
@@ -154,7 +154,7 @@ impl InteractionHandler {
                             crate::SUPPORT_USER_ID
                         ),
                         crate::CONSTANTS.colors.red as u32,
-                        (std::any::type_name_of_val(&err).to_string(), err.to_string()),
+                        (std::any::type_name_of_val(&err).to_string(), anyhow::Error::new(err)),
                     )
                     .await
                     .context("Failed to report error receiving results")?;
@@ -253,18 +253,19 @@ impl InteractionHandler {
         title: &str,
         description: impl Into<String>,
         color: u32,
-        field: impl Into<Option<(String, String)>>,
+        field: impl Into<Option<(String, anyhow::Error)>>,
     ) -> anyhow::Result<()> {
         let mut embed = EmbedBuilder::new()
             .title(title)
             .description(description)
             .color(color);
 
-        if let Some((name, value)) = field.into() {
+        let field = field.into();
+        if let Some((name, err)) = &field {
             embed = embed.field(EmbedField {
                 inline: false,
                 name: name.to_string(),
-                value: value.to_string(),
+                value: Self::fmt_anyhow_error(err),
             });
         }
 
@@ -277,10 +278,14 @@ impl InteractionHandler {
             }
             Err(err) => {
                 warn!("{err:?}");
+                if let Some((_, err)) = field {
+                    warn!("{err:?}");
+                }
+
                 client
                     .update_response(token)
                     .content(Some(&format!(
-                        "Something went wrong.\n-# Report that error to <#{}> if it occurs again.",
+                        "**Something went wrong.**\n-# Report that error to <@{}> if it occurs again.",
                         crate::SUPPORT_USER_ID
                     )))
                     .await?

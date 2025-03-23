@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use exports::nu::discord_bot::nu::{Guest, GuestExecutor};
+use exports::nu::discord_bot::nu::{ExecuteError, ExecuteOk, File, Guest, GuestExecutor};
 use nu_protocol::{
     Config, PipelineData, Span, Value,
     debugger::WithoutDebug,
-    engine::{self, EngineState, Stack, StateWorkingSet},
+    engine::{EngineState, Stack, StateWorkingSet},
 };
 
 wit_bindgen::generate!(in "../wit");
@@ -20,8 +20,6 @@ struct Executor {
     stack: Stack,
 }
 
-type File = exports::nu::discord_bot::nu::File;
-
 impl GuestExecutor for Executor {
     fn new() -> Self {
         Self {
@@ -30,7 +28,12 @@ impl GuestExecutor for Executor {
         }
     }
 
-    fn execute(&self, fname: String, source: String, file: Option<File>) -> String {
+    fn execute(
+        &self,
+        fname: String,
+        source: String,
+        file: Option<File>,
+    ) -> Result<ExecuteOk, ExecuteError> {
         let source = format!("{source} | table --expand");
         let source = source.as_bytes();
         let mut engine_state = self.engine_state.clone();
@@ -38,12 +41,12 @@ impl GuestExecutor for Executor {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let block = nu_parser::parse(&mut working_set, Some(&fname), source, false);
 
-        if let Some(error) = working_set.parse_errors.into_iter().next() {
-            return "some parse error".into();
+        if let Some(_error) = working_set.parse_errors.into_iter().next() {
+            return Ok(ExecuteOk::Error("some parse error".into()));
         }
 
-        if let Some(error) = working_set.compile_errors.into_iter().next() {
-            return "some compile error".into();
+        if let Some(_error) = working_set.compile_errors.into_iter().next() {
+            return Ok(ExecuteOk::Error("some compile error".into()));
         }
 
         let input = match file {
@@ -53,13 +56,20 @@ impl GuestExecutor for Executor {
         };
         let input = PipelineData::Value(input, None);
 
-        engine_state.merge_delta(working_set.delta).unwrap();
+        engine_state
+            .merge_delta(working_set.delta)
+            .map_err(|_| ExecuteError::MergeDelta)?;
         let res = nu_engine::eval_block::<WithoutDebug>(&engine_state, &mut stack, &block, input);
-        let res = res.unwrap();
+        let res = match res {
+            Err(err) => return Ok(ExecuteOk::Error(format!("{err:#?}"))),
+            Ok(res) => res,
+        };
 
-        let output = res.into_value(Span::unknown()).unwrap();
-        let output = output.into_string().unwrap();
-        output
+        let output = res
+            .into_value(Span::unknown())
+            .map_err(|_| ExecuteError::IntoValue)?;
+        let output = output.into_string().map_err(|_| ExecuteError::IntoString)?;
+        Ok(ExecuteOk::Value(output))
     }
 }
 
