@@ -1,7 +1,10 @@
 use anyhow::{Context, bail, ensure};
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
+use std::{
+    collections::HashMap,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 use tracing::{instrument, warn};
 use twilight_http::{Client, client::InteractionClient};
@@ -12,7 +15,11 @@ use twilight_model::{
             Interaction, InteractionData, InteractionType, application_command::CommandOptionValue,
         },
     },
-    channel::message::embed::EmbedField,
+    channel::message::{
+        Component, EmojiReactionType, MessageFlags,
+        component::{ActionRow, Button, ButtonStyle},
+        embed::EmbedField,
+    },
 };
 use twilight_util::builder::{
     command::{AttachmentBuilder, CommandBuilder, StringBuilder},
@@ -28,6 +35,7 @@ use crate::{
 pub struct InteractionHandler {
     discord_token: String,
     interaction_rx: tokio::sync::mpsc::Receiver<Interaction>,
+    interaction_tokens: HashMap<String, String>,
     wasm_ready: Arc<AtomicBool>,
     execute_tx: tokio::sync::mpsc::Sender<ExecuteParams>,
     http_client: reqwest::Client,
@@ -43,6 +51,7 @@ impl InteractionHandler {
         InteractionHandler {
             discord_token,
             interaction_rx,
+            interaction_tokens: HashMap::new(),
             wasm_ready,
             execute_tx,
             http_client: reqwest::Client::new(),
@@ -70,6 +79,9 @@ impl InteractionHandler {
                 )
                 .await
                 .context("Failed to report Nu Executor Not Ready")?;
+                self.followup_delete_button(&interaction_client, &interaction.token)
+                    .await
+                    .context("Failed to send followup delete button: not ready")?;
                 continue;
             }
 
@@ -93,6 +105,9 @@ impl InteractionHandler {
                     )
                     .await
                     .context("Failed to report invalid interaction options")?;
+                    self.followup_delete_button(&interaction_client, &interaction.token)
+                        .await
+                        .context("Failed to send followup delete button: invalid options")?;
                     continue;
                 }
             };
@@ -112,6 +127,9 @@ impl InteractionHandler {
                                 .content(Some(&content))
                                 .await
                                 .context("Failed to update response with result")?;
+                            self.followup_delete_button(&interaction_client, &interaction.token)
+                                .await
+                                .context("Failed to send followup delete button: short result")?;
                         }
                         len => {
                             self.report(
@@ -126,6 +144,9 @@ impl InteractionHandler {
                             )
                             .await
                             .context("Failed to report result too long")?;
+                            self.followup_delete_button(&interaction_client, &interaction.token)
+                                .await
+                                .context("Failed to send followup delete button: long result")?;
                         }
                     };
                 }
@@ -143,6 +164,9 @@ impl InteractionHandler {
                     )
                     .await
                     .context("Failed to report error during Nu execution")?;
+                    self.followup_delete_button(&interaction_client, &interaction.token)
+                        .await
+                        .context("Failed to send followup delete button: execution error")?;
                 }
                 Err(err) => {
                     self.report(
@@ -158,6 +182,9 @@ impl InteractionHandler {
                     )
                     .await
                     .context("Failed to report error receiving results")?;
+                    self.followup_delete_button(&interaction_client, &interaction.token)
+                        .await
+                        .context("Failed to send followup delete button: result receive error")?;
                 }
             };
         }
@@ -302,5 +329,33 @@ impl InteractionHandler {
             .next()
             .expect("is first")
             .to_owned()
+    }
+
+    async fn followup_delete_button(
+        &mut self,
+        interaction_client: &InteractionClient<'_>,
+        token: &str,
+    ) -> anyhow::Result<()> {
+        let custom_id = format!("rm:{}", token.chars().take(5).collect::<String>());
+        self.interaction_tokens
+            .insert(custom_id.to_string(), token.to_string());
+        let button = Component::Button(Button {
+            custom_id: Some(custom_id),
+            disabled: false,
+            emoji: None,
+            label: Some("Delete".into()),
+            style: ButtonStyle::Danger,
+            url: None,
+            sku_id: None,
+        });
+        let action_row = Component::ActionRow(ActionRow {
+            components: vec![button],
+        });
+        interaction_client
+            .create_followup(token)
+            .components(&[action_row])
+            .flags(MessageFlags::EPHEMERAL)
+            .await?;
+        Ok(())
     }
 }
