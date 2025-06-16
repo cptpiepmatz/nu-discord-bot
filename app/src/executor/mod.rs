@@ -63,6 +63,8 @@ impl From<ExecuteParamsFile> for exports::nu::discord_bot::nu::File {
 pub type ExecuteResult = anyhow::Result<String>;
 
 impl NuExecutor {
+    pub const COLS: u16 = 100;
+
     pub fn new(
         wasm_ready: Arc<AtomicBool>,
         execute_rx: tokio::sync::mpsc::Receiver<ExecuteParams>,
@@ -121,6 +123,7 @@ impl NuExecutor {
                     &fname,
                     &source,
                     file.map(Into::into).as_ref(),
+                    Self::COLS,
                 )
                 .await;
             #[rustfmt::skip]

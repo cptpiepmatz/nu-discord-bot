@@ -23,7 +23,8 @@ interface nu {
     execute: func(
       fname: string, 
       source: string, 
-      file: option<file>
+      file: option<file>,
+      cols: u16,
     ) -> result<execute-ok, execute-error>;
   }
 }

@@ -10,6 +10,7 @@ members = ["app", "wasm"]
 anyhow = "1"
 axum = "0.8"
 bytes = "1.10"
+console = "0.15"
 const-hex = "1.14"
 cosmic-text = "0.14"
 ed25519-dalek = "2"

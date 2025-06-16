@@ -1,12 +1,15 @@
 use anyhow::{Context, bail, ensure};
+use image::codecs::png::PngEncoder;
+use tokio::fs;
 use std::{
     collections::HashMap,
+    io::Cursor,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
 };
-use tracing::{instrument, warn};
+use tracing::{debug, instrument, warn};
 use twilight_http::{Client, client::InteractionClient};
 use twilight_model::{
     application::{
@@ -20,6 +23,7 @@ use twilight_model::{
         component::{ActionRow, Button, ButtonStyle},
         embed::EmbedField,
     },
+    http::attachment::Attachment,
 };
 use twilight_util::builder::{
     command::{AttachmentBuilder, CommandBuilder, StringBuilder},
@@ -29,6 +33,7 @@ use twilight_util::builder::{
 use crate::{
     error_and_bail,
     executor::{ExecuteParams, ExecuteParamsFile, ExecuteResult},
+    interaction::render::TerminalRenderer,
 };
 
 mod render;
@@ -41,6 +46,7 @@ pub struct InteractionHandler {
     wasm_ready: Arc<AtomicBool>,
     execute_tx: tokio::sync::mpsc::Sender<ExecuteParams>,
     http_client: reqwest::Client,
+    terminal_renderer: TerminalRenderer,
 }
 
 impl InteractionHandler {
@@ -57,6 +63,7 @@ impl InteractionHandler {
             wasm_ready,
             execute_tx,
             http_client: reqwest::Client::new(),
+            terminal_renderer: TerminalRenderer::new(),
         }
     }
 
@@ -70,6 +77,8 @@ impl InteractionHandler {
             .context("Failed to register interaction commands")?;
 
         while let Some(interaction) = self.interaction_rx.recv().await {
+            debug!("Got request from {}", interaction.author().as_ref().map(|user| user.name.as_str()).unwrap_or("unknown"));
+
             if !self.wasm_ready.load(Ordering::Relaxed) {
                 self.report(
                     &interaction_client,
@@ -121,36 +130,30 @@ impl InteractionHandler {
 
             match result_rx.await {
                 Ok(Ok(res)) => {
-                    let content = format!("```ansi\n{res}\n```");
-                    match content.chars().count() {
-                        ..=2000 => {
-                            interaction_client
-                                .update_response(&interaction.token)
-                                .content(Some(&content))
-                                .await
-                                .context("Failed to update response with result")?;
-                            self.followup_delete_button(&interaction_client, &interaction.token)
-                                .await
-                                .context("Failed to send followup delete button: short result")?;
-                        }
-                        len => {
-                            self.report(
-                                &interaction_client,
-                                &interaction.token,
-                                "⚠️ Result Too Long",
-                                format!(
-                                    "The result is {len} characters long — that's over Discord's 2000 character limit. Try adjusting your pipeline to make the output smaller."
-                                ),
-                                crate::CONSTANTS.colors.yellow as u32,
-                                None,
-                            )
-                            .await
-                            .context("Failed to report result too long")?;
-                            self.followup_delete_button(&interaction_client, &interaction.token)
-                                .await
-                                .context("Failed to send followup delete button: long result")?;
-                        }
-                    };
+                    debug!("Rendering result image");
+                    let image = self.terminal_renderer.render(
+                        &res
+                    );
+                    debug!("Encoding result image");
+                    let mut buf = Cursor::new(Vec::new());
+                    let encoder = PngEncoder::new(&mut buf);
+                    image
+                        .write_with_encoder(encoder)
+                        .expect("correctly allocated buf");
+                    debug!("Trying to respond in Discord");
+                    interaction_client
+                        .update_response(&interaction.token)
+                        .attachments(&[Attachment {
+                            description: None,
+                            file: buf.into_inner(),
+                            filename: String::from("result.png"),
+                            id: 0,
+                        }])
+                        .await
+                        .context("Failed to update response with result")?;
+                    self.followup_delete_button(&interaction_client, &interaction.token)
+                        .await
+                        .context("Failed to send followup delete button: result")?;
                 }
                 Ok(Err(err)) => {
                     self.report(

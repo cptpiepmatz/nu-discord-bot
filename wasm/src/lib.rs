@@ -33,8 +33,9 @@ impl GuestExecutor for Executor {
         fname: String,
         source: String,
         file: Option<File>,
+        cols: u16,
     ) -> Result<ExecuteOk, ExecuteError> {
-        let source = format!("{source} | table --expand");
+        let source = format!("{source} | table --expand --width {cols}");
         let source = source.as_bytes();
         let mut engine_state = self.engine_state.clone();
         let mut stack = self.stack.clone();

@@ -4,12 +4,14 @@ use cosmic_text::{
     Attrs, Buffer, Color, Family, FontSystem, Metrics, Shaping, SwashCache, fontdb::Source,
 };
 use image::{Pixel, Rgba, RgbaImage};
+use tracing::warn;
 use vt100::Cell;
 
 static_toml::static_toml! {
     static COLORS = include_toml!("../ayu-dark.toml");
 }
 
+#[derive(Debug)]
 pub struct TerminalRenderer {
     font_system: FontSystem,
     swash_cache: SwashCache,
@@ -26,8 +28,9 @@ impl TerminalRenderer {
     }
 
     // for cols, use the --width parameter in table
-    pub fn render(&mut self, input: &str, rows: u16, cols: u16) -> RgbaImage {
-        let rows = rows * 2;
+    pub fn render(&mut self, input: &str) -> RgbaImage {
+        let rows = (input.lines().count() * 2) as u16;
+        let cols = console::strip_ansi_codes(input.lines().next().expect("never empty")).chars().count() as u16;
 
         let font_size = 22.0;
         let line_height = 14.0;
@@ -83,7 +86,10 @@ impl TerminalRenderer {
             let color = Rgba::from_slice(&color.as_rgba()).clone();
             for x in x..(x + w) {
                 for y in y..(y + h) {
-                    image_buffer.get_pixel_mut(x, y).blend(&color);
+                    match image_buffer.get_pixel_mut_checked(x, y) {
+                        Some(pixel) => pixel.blend(&color),
+                        None => warn!("tried to access pixel out of bounds"),
+                    }
                 }
             }
         });
@@ -131,10 +137,7 @@ mod tests {
     fn test_render() {
         let mut renderer = TerminalRenderer::new();
         let input = include_str!("../../../version.ansi");
-        let rows = input.lines().count();
-        let rows = u16::try_from(rows).unwrap();
-        let cols = 100;
-        let image = renderer.render(input, rows, cols);
+        let image = renderer.render(input);
 
         let file = std::fs::File::create("./version.png").unwrap();
         let encoder = PngEncoder::new(file);
