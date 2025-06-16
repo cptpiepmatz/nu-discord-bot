@@ -1,6 +1,5 @@
 use anyhow::{Context, bail, ensure};
 use image::codecs::png::PngEncoder;
-use tokio::fs;
 use std::{
     collections::HashMap,
     io::Cursor,

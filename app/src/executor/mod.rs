@@ -63,7 +63,7 @@ impl From<ExecuteParamsFile> for exports::nu::discord_bot::nu::File {
 pub type ExecuteResult = anyhow::Result<String>;
 
 impl NuExecutor {
-    pub const COLS: u16 = 100;
+    pub const COLS: u16 = 200;
 
     pub fn new(
         wasm_ready: Arc<AtomicBool>,
