@@ -11,7 +11,10 @@ use wasmtime::{
     Config, Engine, Store,
     component::{Component, Linker},
 };
-use wasmtime_wasi::{ResourceTable, p2::{IoView, WasiCtx, WasiView}};
+use wasmtime_wasi::{
+    ResourceTable,
+    p2::{IoView, WasiCtx, WasiView},
+};
 
 use crate::error_and_bail;
 
@@ -88,7 +91,8 @@ impl NuExecutor {
         let mut store = Store::new(&engine, ctx);
         let mut linker = Linker::new(&engine);
         debug!("Linking WASI");
-        wasmtime_wasi::p2::add_to_linker_async(&mut linker).context("could not link against wasi")?;
+        wasmtime_wasi::p2::add_to_linker_async(&mut linker)
+            .context("could not link against wasi")?;
 
         let world = Bot::instantiate_async(&mut store, &component, &mut linker)
             .await

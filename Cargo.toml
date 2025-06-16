@@ -11,7 +11,9 @@ anyhow = "1"
 axum = "0.8"
 bytes = "1.10"
 const-hex = "1.14"
+cosmic-text = "0.14"
 ed25519-dalek = "2"
+image = "0.25"
 nu-cmd-extra = { git = "https://github.com/nushell/nushell.git", default-features = false }
 nu-cmd-lang = { git = "https://github.com/nushell/nushell.git", default-features = false }
 nu-command = { git = "https://github.com/nushell/nushell.git", default-features = false }
@@ -34,6 +36,7 @@ tracing = "0.1"
 twilight-http = "0.16"
 twilight-model = "0.16"
 twilight-util = { version = "0.16", features = ["builder"] }
+vt100 = "0.15"
 wasmtime = "33"
 wasmtime-wasi = "33"
 wit-bindgen = "0.42"

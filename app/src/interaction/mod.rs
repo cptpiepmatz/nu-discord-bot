@@ -16,7 +16,7 @@ use twilight_model::{
         },
     },
     channel::message::{
-        Component, EmojiReactionType, MessageFlags,
+        Component, MessageFlags,
         component::{ActionRow, Button, ButtonStyle},
         embed::EmbedField,
     },
@@ -30,6 +30,8 @@ use crate::{
     error_and_bail,
     executor::{ExecuteParams, ExecuteParamsFile, ExecuteResult},
 };
+
+mod render;
 
 #[derive(Debug)]
 pub struct InteractionHandler {
