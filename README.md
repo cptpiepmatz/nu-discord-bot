@@ -18,3 +18,5 @@ sequenceDiagram
     Interaction Handler-->>Discord: Update Deferred Response
 
 ```
+
+theme from https://terminalcolors.com/themes/ayu/

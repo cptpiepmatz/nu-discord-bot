@@ -1,6 +1,8 @@
 use std::{cmp, sync::Arc};
 
-use cosmic_text::{fontdb::Source, Attrs, Buffer, Color, Family, FontSystem, Metrics, Shaping, SwashCache};
+use cosmic_text::{
+    Attrs, Buffer, Color, Family, FontSystem, Metrics, Shaping, SwashCache, fontdb::Source,
+};
 use image::{Pixel, Rgba, RgbaImage};
 use vt100::Cell;
 
@@ -70,7 +72,11 @@ impl TerminalRenderer {
             max_y = cmp::max(max_y, y + h as i32);
         });
 
-        let mut image_buffer = RgbaImage::new((max_x + min_x) as u32, (max_y + min_y) as u32);
+        let mut image_buffer = RgbaImage::from_pixel(
+            (max_x + min_x) as u32,
+            (max_y + min_y) as u32,
+            Rgba(((COLORS.colors.primary.background as u32) << 8 | 0xFF).to_be_bytes()),
+        );
         text_buffer.draw(&mut self.swash_cache, text_color, |x, y, w, h, color| {
             let Ok(x) = u32::try_from(x) else { return };
             let Ok(y) = u32::try_from(y) else { return };
@@ -86,16 +92,32 @@ impl TerminalRenderer {
     }
 
     fn attrs_from_cell(cell: &Cell) -> Attrs {
-        let mut attrs = Attrs::new().family(Family::Name("JetBrains Mono"));
-
-        let fgcolor = match cell.fgcolor() {
-            vt100::Color::Default => None,
-            vt100::Color::Idx(30) => Some(Color(COLORS.colors.normal.black as u32)),
-            vt100::Color::Idx(_) => None,
-            vt100::Color::Rgb(r, g, b) => Some(Color::rgb(r, g, b)),
+        let color = match cell.fgcolor() {
+            vt100::Color::Idx(00) => Color(COLORS.colors.normal.black as u32),
+            vt100::Color::Idx(01) => Color(COLORS.colors.normal.red as u32),
+            vt100::Color::Idx(02) => Color(COLORS.colors.normal.green as u32),
+            vt100::Color::Idx(03) => Color(COLORS.colors.normal.yellow as u32),
+            vt100::Color::Idx(04) => Color(COLORS.colors.normal.blue as u32),
+            vt100::Color::Idx(05) => Color(COLORS.colors.normal.magenta as u32),
+            vt100::Color::Idx(06) => Color(COLORS.colors.normal.cyan as u32),
+            vt100::Color::Idx(07) => Color(COLORS.colors.normal.white as u32),
+            vt100::Color::Idx(08) => Color(COLORS.colors.bright.black as u32),
+            vt100::Color::Idx(09) => Color(COLORS.colors.bright.red as u32),
+            vt100::Color::Idx(10) => Color(COLORS.colors.bright.green as u32),
+            vt100::Color::Idx(11) => Color(COLORS.colors.bright.yellow as u32),
+            vt100::Color::Idx(12) => Color(COLORS.colors.bright.blue as u32),
+            vt100::Color::Idx(13) => Color(COLORS.colors.bright.magenta as u32),
+            vt100::Color::Idx(14) => Color(COLORS.colors.bright.cyan as u32),
+            vt100::Color::Idx(15) => Color(COLORS.colors.bright.white as u32),
+            vt100::Color::Rgb(r, g, b) => Color::rgb(r, g, b),
+            vt100::Color::Default | vt100::Color::Idx(_) => {
+                Color(COLORS.colors.primary.foreground as u32)
+            }
         };
 
-        attrs
+        Attrs::new()
+            .family(Family::Name("JetBrains Mono"))
+            .color(color)
     }
 }
 
