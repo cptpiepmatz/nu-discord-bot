@@ -18,6 +18,8 @@ pub struct TerminalRenderer {
 }
 
 impl TerminalRenderer {
+    pub const MAX_ROWS: u16 = 64;
+
     pub fn new() -> Self {
         Self {
             font_system: FontSystem::new_with_fonts([Source::Binary(Arc::new(include_bytes!(
@@ -29,7 +31,7 @@ impl TerminalRenderer {
 
     // for cols, use the --width parameter in table
     pub fn render(&mut self, input: &str) -> RgbaImage {
-        let rows = (input.lines().count() * 2) as u16;
+        let rows = cmp::min((input.lines().count() * 2) as u16, Self::MAX_ROWS);
         let cols = console::strip_ansi_codes(input.lines().next().expect("never empty"))
             .chars()
             .count() as u16;
