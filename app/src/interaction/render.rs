@@ -31,19 +31,27 @@ impl TerminalRenderer {
 
     // for cols, use the --width parameter in table
     pub fn render(&mut self, input: &str) -> RgbaImage {
-        let rows = cmp::min((input.lines().count() * 2) as u16, Self::MAX_ROWS);
-        let cols = console::strip_ansi_codes(input.lines().next().expect("never empty"))
-            .chars()
-            .count() as u16;
+        let rows = cmp::min((input.lines().count()) as u16, Self::MAX_ROWS);
+        let cols = console::strip_ansi_codes(input)
+            .lines()
+            .map(|line| line.chars().count())
+            .max()
+            .unwrap_or(0) as u16;
 
         let font_size = 22.0;
-        let line_height = 14.0;
+        let line_height = 28.0;
         let metrics = Metrics::new(font_size, line_height);
         let mut text_buffer = Buffer::new(&mut self.font_system, metrics);
         let mut text_buffer = text_buffer.borrow_with(&mut self.font_system);
 
         let mut screen = vt100::Parser::new(rows, cols, 0);
-        screen.process(input.as_bytes());
+        screen.process(
+            input
+                .lines()
+                .map(|line| format!("{:<width$}", line, width = cols as usize))
+                .collect::<String>()
+                .as_bytes(),
+        );
 
         let attrs = || Attrs::new().family(Family::Name("JetBrains Mono"));
 
