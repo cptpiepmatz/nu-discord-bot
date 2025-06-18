@@ -8,6 +8,10 @@ fn main() {
 }
 
 fn build_wasm() {
+    println!("cargo:rerun-if-changed=../wasm/src/lib.rs");
+    println!("cargo:rerun-if-changed=../wasm/Cargo.toml");
+    println!("cargo:rerun-if-changed=../wit/nu.wit");
+
     let command = format!("cargo build --lib --target {TARGET} --target-dir {TARGET_DIR}");
 
     let mut args: VecDeque<_> = command.split(' ').collect();
