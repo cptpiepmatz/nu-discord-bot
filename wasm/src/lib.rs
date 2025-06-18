@@ -46,8 +46,8 @@ impl GuestExecutor for Executor {
             return Ok(ExecuteOk::Error("some parse error".into()));
         }
 
-        if let Some(_error) = working_set.compile_errors.into_iter().next() {
-            return Ok(ExecuteOk::Error("some compile error".into()));
+        if let Some(error) = working_set.compile_errors.into_iter().next() {
+            return Ok(ExecuteOk::Error(format!("{error:#?}")));
         }
 
         let input = match file {
