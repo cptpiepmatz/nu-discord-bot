@@ -135,7 +135,7 @@ impl InteractionHandler {
                 .context("Failed to send execute parameters")?;
 
             match result_rx.await {
-                Ok(Ok(res)) => {
+                Ok(Ok((res, elapsed))) => {
                     debug!("Rendering result image");
                     let image = self.terminal_renderer.render(&res);
                     debug!("Encoding result image");
@@ -153,6 +153,10 @@ impl InteractionHandler {
                             filename: String::from("result.png"),
                             id: 0,
                         }])
+                        .content(Some(&format!(
+                            "-# took {}",
+                            humantime::format_duration(elapsed)
+                        )))
                         .await
                         .context("Failed to update response with result")?;
                     self.followup_delete_button(&interaction_client, &interaction.token)

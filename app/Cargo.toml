@@ -12,6 +12,7 @@ console.workspace = true
 const-hex.workspace = true
 cosmic-text.workspace = true
 ed25519-dalek.workspace = true
+humantime.workspace = true
 image.workspace = true
 reqwest.workspace = true
 serde_json.workspace = true

@@ -6,6 +6,7 @@ use std::sync::{
 use anyhow::{Context, anyhow};
 use bytes::Bytes;
 use exports::nu::discord_bot::nu::{ExecuteError, ExecuteOk};
+use tokio::time::Instant;
 use tracing::{debug, info, instrument};
 use wasmtime::{
     Config, Engine, Store,
@@ -56,7 +57,7 @@ impl From<ExecuteParamsFile> for exports::nu::discord_bot::nu::File {
     }
 }
 
-pub type ExecuteResult = anyhow::Result<String>;
+pub type ExecuteResult = anyhow::Result<(String, std::time::Duration)>;
 
 impl NuExecutor {
     pub const COLS: u16 = 200;
@@ -114,6 +115,7 @@ impl NuExecutor {
                 file,
                 result_tx,
             } = params;
+            let before_execute = Instant::now();
             let res = guest
                 .call_execute(
                     &mut store,
@@ -124,9 +126,10 @@ impl NuExecutor {
                     Self::COLS,
                 )
                 .await;
+            let elapsed = before_execute.elapsed();
             #[rustfmt::skip]
             let res = match res {
-                Ok(Ok(ExecuteOk::Value(ok) | ExecuteOk::Error(ok))) => Ok(ok),
+                Ok(Ok(ExecuteOk::Value(ok) | ExecuteOk::Error(ok))) => Ok((ok, elapsed)),
                 Ok(Err(ExecuteError::MergeDelta)) => Err(anyhow!("error while merging delta")),
                 Ok(Err(ExecuteError::IntoValue)) => Err(anyhow!("error while turning res into value")),
                 Ok(Err(ExecuteError::IntoString)) => Err(anyhow!("error while turning res into string")),
