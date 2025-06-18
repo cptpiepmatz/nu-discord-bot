@@ -10,9 +10,12 @@ fn main() {
 }
 
 fn build_wasm() {
+    println!("cargo:rerun-if-changed=../wit/nu.wit");
     println!("cargo:rerun-if-changed=../wasm/src/lib.rs");
     println!("cargo:rerun-if-changed=../wasm/Cargo.toml");
-    println!("cargo:rerun-if-changed=../wit/nu.wit");
+    println!("cargo:rerun-if-changed=../Cargo.toml");
+    println!("cargo:rerun-if-changed=../Cargo.lock");
+
     let cargo_manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("set by cargo");
     let profile = env::var("PROFILE").expect("set by cargo");
     let out_dir = env::var("OUT_DIR").expect("set by cargo");
