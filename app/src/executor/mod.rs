@@ -23,12 +23,8 @@ wasmtime::component::bindgen!({
     async: true,
 });
 
-#[cfg(debug_assertions)]
 static WASM_BYTES: &[u8] =
-    include_bytes!("../../../target/wasm/wasm32-wasip2/debug/nu_discord_bot_wasm.wasm");
-#[cfg(not(debug_assertions))]
-static WASM_BYTES: &[u8] =
-    include_bytes!("../../../target/wasm/wasm32-wasip2/release/nu_discord_bot_wasm.wasm");
+    include_bytes!(concat!(env!("OUT_DIR"), "/nu_discord_bot_wasm.wasm.bin"));
 
 #[derive(Debug)]
 pub struct NuExecutor {
@@ -86,9 +82,11 @@ impl NuExecutor {
         let config = config.async_support(true);
         let engine = Engine::new(config).context("could not create engine")?;
 
-        debug!("Compiling component");
-        let component =
-            Component::from_binary(&engine, WASM_BYTES).context("could not compile component")?;
+        debug!("Deserializing component");
+        // SAFETY: The WASM_BYTES were previously serialized by the build script.
+        let component = unsafe {
+            Component::deserialize(&engine, WASM_BYTES).context("could not compile component")?
+        };
 
         let mut store = Store::new(&engine, ctx);
         let mut linker = Linker::new(&engine);

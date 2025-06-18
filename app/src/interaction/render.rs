@@ -30,7 +30,9 @@ impl TerminalRenderer {
     // for cols, use the --width parameter in table
     pub fn render(&mut self, input: &str) -> RgbaImage {
         let rows = (input.lines().count() * 2) as u16;
-        let cols = console::strip_ansi_codes(input.lines().next().expect("never empty")).chars().count() as u16;
+        let cols = console::strip_ansi_codes(input.lines().next().expect("never empty"))
+            .chars()
+            .count() as u16;
 
         let font_size = 22.0;
         let line_height = 14.0;
@@ -75,17 +77,20 @@ impl TerminalRenderer {
             max_y = cmp::max(max_y, y + h as i32);
         });
 
+        const MARGIN: i32 = 20;
         let mut image_buffer = RgbaImage::from_pixel(
-            (max_x + min_x) as u32,
-            (max_y + min_y) as u32,
+            (max_x - min_x + MARGIN) as u32,
+            (max_y - min_y + MARGIN) as u32,
             Rgba(((COLORS.colors.primary.background as u32) << 8 | 0xFF).to_be_bytes()),
         );
         text_buffer.draw(&mut self.swash_cache, text_color, |x, y, w, h, color| {
-            let Ok(x) = u32::try_from(x) else { return };
-            let Ok(y) = u32::try_from(y) else { return };
+            let w = w as i32;
+            let h = h as i32;
             let color = Rgba::from_slice(&color.as_rgba()).clone();
             for x in x..(x + w) {
                 for y in y..(y + h) {
+                    let x = (x + (MARGIN / 2) - min_x) as u32;
+                    let y = (y + (MARGIN / 2) - min_y) as u32;
                     match image_buffer.get_pixel_mut_checked(x, y) {
                         Some(pixel) => pixel.blend(&color),
                         None => warn!("tried to access pixel out of bounds"),

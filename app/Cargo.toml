@@ -27,3 +27,6 @@ twilight-util.workspace = true
 vt100.workspace = true
 wasmtime-wasi.workspace = true
 wasmtime.workspace = true
+
+[build-dependencies]
+wasmtime.workspace = true

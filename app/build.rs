@@ -1,4 +1,6 @@
-use std::{collections::VecDeque, env, process::Command};
+use std::{collections::VecDeque, env, fs, process::Command};
+
+use wasmtime::{Config, Engine, component::Component};
 
 const TARGET: &str = "wasm32-wasip2";
 const TARGET_DIR: &str = "target/wasm";
@@ -11,23 +13,41 @@ fn build_wasm() {
     println!("cargo:rerun-if-changed=../wasm/src/lib.rs");
     println!("cargo:rerun-if-changed=../wasm/Cargo.toml");
     println!("cargo:rerun-if-changed=../wit/nu.wit");
+    let cargo_manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("set by cargo");
+    let profile = env::var("PROFILE").expect("set by cargo");
+    let out_dir = env::var("OUT_DIR").expect("set by cargo");
 
     let command = format!("cargo build --lib --target {TARGET} --target-dir {TARGET_DIR}");
 
     let mut args: VecDeque<_> = command.split(' ').collect();
     let command = args.pop_front().unwrap();
 
-    if let Ok("release") = env::var("PROFILE").as_deref() {
+    if profile == "release" {
         args.push_back("--release");
     }
 
     let status = Command::new(command)
         .args(&args)
-        .current_dir(env::var("CARGO_MANIFEST_DIR").unwrap() + "/..")
+        .current_dir(format!("{cargo_manifest_dir}/.."))
         .status()
         .unwrap();
 
     if !status.success() {
         panic!("Could not build WASM library");
     }
+
+    let mut config = Config::default();
+    let config = config.async_support(true);
+    let engine = Engine::new(config).expect("could not create engine");
+
+    let component_path = format!(
+        "{cargo_manifest_dir}/../target/wasm/wasm32-wasip2/{profile}/nu_discord_bot_wasm.wasm"
+    );
+    let component =
+        Component::from_file(&engine, component_path).expect("could not compile component");
+    let component = component
+        .serialize()
+        .expect("could not serialize component");
+    fs::write(out_dir + "/nu_discord_bot_wasm.wasm.bin", component)
+        .expect("could not write serialized component");
 }

@@ -76,7 +76,14 @@ impl InteractionHandler {
             .context("Failed to register interaction commands")?;
 
         while let Some(interaction) = self.interaction_rx.recv().await {
-            debug!("Got request from {}", interaction.author().as_ref().map(|user| user.name.as_str()).unwrap_or("unknown"));
+            debug!(
+                "Got request from {}",
+                interaction
+                    .author()
+                    .as_ref()
+                    .map(|user| user.name.as_str())
+                    .unwrap_or("unknown")
+            );
 
             if !self.wasm_ready.load(Ordering::Relaxed) {
                 self.report(
@@ -130,9 +137,7 @@ impl InteractionHandler {
             match result_rx.await {
                 Ok(Ok(res)) => {
                     debug!("Rendering result image");
-                    let image = self.terminal_renderer.render(
-                        &res
-                    );
+                    let image = self.terminal_renderer.render(&res);
                     debug!("Encoding result image");
                     let mut buf = Cursor::new(Vec::new());
                     let encoder = PngEncoder::new(&mut buf);
