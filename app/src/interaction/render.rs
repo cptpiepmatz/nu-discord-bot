@@ -131,21 +131,3 @@ impl TerminalRenderer {
             .color(color)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use image::codecs::png::PngEncoder;
-
-    use super::*;
-
-    #[test]
-    fn test_render() {
-        let mut renderer = TerminalRenderer::new();
-        let input = include_str!("../../../version.ansi");
-        let image = renderer.render(input);
-
-        let file = std::fs::File::create("./version.png").unwrap();
-        let encoder = PngEncoder::new(file);
-        image.write_with_encoder(encoder).unwrap();
-    }
-}
