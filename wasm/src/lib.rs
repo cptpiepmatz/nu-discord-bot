@@ -42,12 +42,18 @@ impl GuestExecutor for Executor {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let block = nu_parser::parse(&mut working_set, Some(&fname), source, false);
 
-        if let Some(_error) = working_set.parse_errors.into_iter().next() {
-            return Ok(ExecuteOk::Error("some parse error".into()));
+        if let Some(error) = working_set.parse_errors.iter().next() {
+            return Ok(ExecuteOk::Error(nu_protocol::format_cli_error(
+                &working_set,
+                error,
+            )));
         }
 
-        if let Some(error) = working_set.compile_errors.into_iter().next() {
-            return Ok(ExecuteOk::Error(format!("{error:#?}")));
+        if let Some(error) = working_set.compile_errors.iter().next() {
+            return Ok(ExecuteOk::Error(nu_protocol::format_cli_error(
+                &working_set,
+                error,
+            )));
         }
 
         let input = match file {

@@ -45,13 +45,19 @@ impl TerminalRenderer {
         let mut text_buffer = text_buffer.borrow_with(&mut self.font_system);
 
         let mut screen = vt100::Parser::new(rows, cols, 0);
-        screen.process(
-            input
-                .lines()
-                .map(|line| format!("{:<width$}", line, width = cols as usize))
-                .collect::<String>()
-                .as_bytes(),
-        );
+        let padded = input
+            .lines()
+            .map(|line| {
+                // this is some delicate machinery here, we need to figure out the width of a line
+                // without colors, but Rust sees the escape characters too, so we need to properly 
+                // calculate the width including them
+                let len = line.chars().count();
+                let stripped_len = console::strip_ansi_codes(line).chars().count();
+                format!("{:<width$}", line, width = cols as usize + (len - stripped_len))
+            })
+            .collect::<String>();
+        eprintln!("{padded}");
+        screen.process(padded.as_bytes());
 
         let attrs = || Attrs::new().family(Family::Name("JetBrains Mono"));
 
@@ -87,10 +93,10 @@ impl TerminalRenderer {
             max_y = cmp::max(max_y, y + h as i32);
         });
 
-        const MARGIN: i32 = 20;
+        const MARGIN: i32 = 10;
         let mut image_buffer = RgbaImage::from_pixel(
-            (max_x - min_x + MARGIN) as u32,
-            (max_y - min_y + MARGIN) as u32,
+            (max_x - min_x + MARGIN * 2) as u32,
+            (max_y - min_y + MARGIN * 2) as u32,
             Rgba(((COLORS.colors.primary.background as u32) << 8 | 0xFF).to_be_bytes()),
         );
         text_buffer.draw(&mut self.swash_cache, text_color, |x, y, w, h, color| {
@@ -99,8 +105,8 @@ impl TerminalRenderer {
             let color = Rgba::from_slice(&color.as_rgba()).clone();
             for x in x..(x + w) {
                 for y in y..(y + h) {
-                    let x = (x + (MARGIN / 2) - min_x) as u32;
-                    let y = (y + (MARGIN / 2) - min_y) as u32;
+                    let x = (x + MARGIN - min_x) as u32;
+                    let y = (y + MARGIN - min_y) as u32;
                     match image_buffer.get_pixel_mut_checked(x, y) {
                         Some(pixel) => pixel.blend(&color),
                         None => warn!("tried to access pixel out of bounds"),
