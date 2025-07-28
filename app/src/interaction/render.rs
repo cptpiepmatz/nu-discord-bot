@@ -56,7 +56,6 @@ impl TerminalRenderer {
                 format!("{:<width$}", line, width = cols as usize + (len - stripped_len))
             })
             .collect::<String>();
-        eprintln!("{padded}");
         screen.process(padded.as_bytes());
 
         let attrs = || Attrs::new().family(Family::Name("JetBrains Mono"));
@@ -71,11 +70,11 @@ impl TerminalRenderer {
                 }
             }
 
-            spans.push((String::from("\n"), attrs()));
+            spans.push(("\n", attrs()));
         }
 
         text_buffer.set_rich_text(
-            spans.iter().map(|(c, a)| (c.as_str(), a.clone())),
+            spans.iter().map(|(c, a)| (c.as_ref(), a.clone())),
             &attrs(),
             Shaping::Basic,
             None,
