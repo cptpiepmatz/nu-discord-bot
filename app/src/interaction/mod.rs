@@ -8,7 +8,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
 };
-use tracing::{debug, instrument, warn};
+use tracing::{debug, error, instrument, warn};
 use twilight_http::{Client, client::InteractionClient};
 use twilight_model::{
     application::{
@@ -17,11 +17,7 @@ use twilight_model::{
             Interaction, InteractionData, InteractionType, application_command::CommandOptionValue,
         },
     },
-    channel::message::{
-        Component, MessageFlags,
-        component::{ActionRow, Button, ButtonStyle},
-        embed::EmbedField,
-    },
+    channel::message::embed::EmbedField,
     http::attachment::Attachment,
 };
 use twilight_util::builder::{
@@ -76,113 +72,117 @@ impl InteractionHandler {
             .context("Failed to register interaction commands")?;
 
         while let Some(interaction) = self.interaction_rx.recv().await {
-            debug!(
-                "Got request from {}",
-                interaction
-                    .author()
-                    .as_ref()
-                    .map(|user| user.name.as_str())
-                    .unwrap_or("unknown")
-            );
+            if let Err(err) = self
+                .handle_interaction(interaction, &interaction_client)
+                .await
+            {
+                error!("{err}");
+            }
+        }
 
-            if !self.wasm_ready.load(Ordering::Relaxed) {
+        error_and_bail!("Interaction Handler stopped");
+    }
+
+    async fn handle_interaction(
+        &mut self,
+        interaction: Interaction,
+        interaction_client: &InteractionClient<'_>,
+    ) -> anyhow::Result<()> {
+        debug!(
+            "Got request from {}",
+            interaction
+                .author()
+                .as_ref()
+                .map(|user| user.name.as_str())
+                .unwrap_or("unknown")
+        );
+
+        if !self.wasm_ready.load(Ordering::Relaxed) {
+            self.report(
+                &interaction_client,
+                &interaction.token,
+                "⚠️ Nu Executor Not Ready Yet",
+                "The WASM runtime did not fully boot up yet.\nWait a bit and try again later.",
+                crate::CONSTANTS.colors.yellow as u32,
+                None,
+            )
+            .await
+            .context("Failed to report Nu Executor Not Ready")?;
+            return Ok(());
+        }
+
+        let (result_tx, result_rx) = tokio::sync::oneshot::channel();
+        let execute_params = match self.extract_execute_params(&interaction, result_tx).await {
+            Ok(params) => params,
+            Err(err) => {
                 self.report(
                     &interaction_client,
                     &interaction.token,
-                    "⚠️ Nu Executor Not Ready Yet",
-                    "The WASM runtime did not fully boot up yet.\nWait a bit and try again later.",
-                    crate::CONSTANTS.colors.yellow as u32,
-                    None,
+                    "⚠️ Invalid Interaction Options",
+                    format!(
+                        "Discord sent invalid interaction options.\nReport this to <@{}>.",
+                        crate::SUPPORT_USER_ID
+                    ),
+                    crate::CONSTANTS.colors.red as u32,
+                    (
+                        std::any::type_name_of_val(err.root_cause()).to_string(),
+                        err,
+                    ),
                 )
                 .await
-                .context("Failed to report Nu Executor Not Ready")?;
-                self.followup_delete_button(&interaction_client, &interaction.token)
-                    .await
-                    .context("Failed to send followup delete button: not ready")?;
-                continue;
+                .context("Failed to report invalid interaction options")?;
+                return Ok(());
             }
+        };
 
-            let (result_tx, result_rx) = tokio::sync::oneshot::channel();
-            let execute_params = match self.extract_execute_params(&interaction, result_tx).await {
-                Ok(params) => params,
-                Err(err) => {
-                    self.report(
-                        &interaction_client,
-                        &interaction.token,
-                        "⚠️ Invalid Interaction Options",
-                        format!(
-                            "Discord sent invalid interaction options.\nReport this to <@{}>.",
-                            crate::SUPPORT_USER_ID
-                        ),
-                        crate::CONSTANTS.colors.red as u32,
-                        (
-                            std::any::type_name_of_val(err.root_cause()).to_string(),
-                            err,
-                        ),
-                    )
+        self.execute_tx
+            .send(execute_params)
+            .await
+            .context("Failed to send execute parameters")?;
+
+        match result_rx.await {
+            Ok(Ok((res, elapsed))) => {
+                debug!("Rendering result image");
+                let image = self.terminal_renderer.render(&res);
+                debug!("Encoding result image");
+                let mut buf = Cursor::new(Vec::new());
+                let encoder = PngEncoder::new(&mut buf);
+                image
+                    .write_with_encoder(encoder)
+                    .expect("correctly allocated buf");
+                debug!("Trying to respond in Discord");
+                interaction_client
+                    .update_response(&interaction.token)
+                    .attachments(&[Attachment {
+                        description: None,
+                        file: buf.into_inner(),
+                        filename: String::from("result.png"),
+                        id: 0,
+                    }])
+                    .content(Some(&format!(
+                        "-# took {}",
+                        humantime::format_duration(elapsed)
+                    )))
                     .await
-                    .context("Failed to report invalid interaction options")?;
-                    self.followup_delete_button(&interaction_client, &interaction.token)
-                        .await
-                        .context("Failed to send followup delete button: invalid options")?;
-                    continue;
-                }
-            };
-
-            self.execute_tx
-                .send(execute_params)
+                    .context("Failed to update response with result")?;
+            }
+            Ok(Err(err)) => {
+                self.report(
+                    &interaction_client,
+                    &interaction.token,
+                    "⚠️ Error During Nu Execution",
+                    "An error while executing pipeline occurred.",
+                    crate::CONSTANTS.colors.yellow as u32,
+                    (
+                        std::any::type_name_of_val(err.root_cause()).to_string(),
+                        err,
+                    ),
+                )
                 .await
-                .context("Failed to send execute parameters")?;
-
-            match result_rx.await {
-                Ok(Ok((res, elapsed))) => {
-                    debug!("Rendering result image");
-                    let image = self.terminal_renderer.render(&res);
-                    debug!("Encoding result image");
-                    let mut buf = Cursor::new(Vec::new());
-                    let encoder = PngEncoder::new(&mut buf);
-                    image
-                        .write_with_encoder(encoder)
-                        .expect("correctly allocated buf");
-                    debug!("Trying to respond in Discord");
-                    interaction_client
-                        .update_response(&interaction.token)
-                        .attachments(&[Attachment {
-                            description: None,
-                            file: buf.into_inner(),
-                            filename: String::from("result.png"),
-                            id: 0,
-                        }])
-                        .content(Some(&format!(
-                            "-# took {}",
-                            humantime::format_duration(elapsed)
-                        )))
-                        .await
-                        .context("Failed to update response with result")?;
-                    self.followup_delete_button(&interaction_client, &interaction.token)
-                        .await
-                        .context("Failed to send followup delete button: result")?;
-                }
-                Ok(Err(err)) => {
-                    self.report(
-                        &interaction_client,
-                        &interaction.token,
-                        "⚠️ Error During Nu Execution",
-                        "An error while executing pipeline occurred.",
-                        crate::CONSTANTS.colors.yellow as u32,
-                        (
-                            std::any::type_name_of_val(err.root_cause()).to_string(),
-                            err,
-                        ),
-                    )
-                    .await
-                    .context("Failed to report error during Nu execution")?;
-                    self.followup_delete_button(&interaction_client, &interaction.token)
-                        .await
-                        .context("Failed to send followup delete button: execution error")?;
-                }
-                Err(err) => {
-                    self.report(
+                .context("Failed to report error during Nu execution")?;
+            }
+            Err(err) => {
+                self.report(
                         &interaction_client,
                         &interaction.token,
                         "⚠️ Error Receiving Results",
@@ -195,14 +195,10 @@ impl InteractionHandler {
                     )
                     .await
                     .context("Failed to report error receiving results")?;
-                    self.followup_delete_button(&interaction_client, &interaction.token)
-                        .await
-                        .context("Failed to send followup delete button: result receive error")?;
-                }
-            };
-        }
+            }
+        };
 
-        error_and_bail!("Interaction Handler stopped");
+        Ok(())
     }
 
     async fn register_commands(interaction_client: &InteractionClient<'_>) -> anyhow::Result<()> {
@@ -342,33 +338,5 @@ impl InteractionHandler {
             .next()
             .expect("is first")
             .to_owned()
-    }
-
-    async fn followup_delete_button(
-        &mut self,
-        interaction_client: &InteractionClient<'_>,
-        token: &str,
-    ) -> anyhow::Result<()> {
-        let custom_id = format!("rm:{}", token.chars().take(5).collect::<String>());
-        self.interaction_tokens
-            .insert(custom_id.to_string(), token.to_string());
-        let button = Component::Button(Button {
-            custom_id: Some(custom_id),
-            disabled: false,
-            emoji: None,
-            label: Some("Delete".into()),
-            style: ButtonStyle::Danger,
-            url: None,
-            sku_id: None,
-        });
-        let action_row = Component::ActionRow(ActionRow {
-            components: vec![button],
-        });
-        interaction_client
-            .create_followup(token)
-            .components(&[action_row])
-            .flags(MessageFlags::EPHEMERAL)
-            .await?;
-        Ok(())
     }
 }
