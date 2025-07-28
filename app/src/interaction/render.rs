@@ -49,11 +49,15 @@ impl TerminalRenderer {
             .lines()
             .map(|line| {
                 // this is some delicate machinery here, we need to figure out the width of a line
-                // without colors, but Rust sees the escape characters too, so we need to properly 
+                // without colors, but Rust sees the escape characters too, so we need to properly
                 // calculate the width including them
                 let len = line.chars().count();
                 let stripped_len = console::strip_ansi_codes(line).chars().count();
-                format!("{:<width$}", line, width = cols as usize + (len - stripped_len))
+                format!(
+                    "{:<width$}",
+                    line,
+                    width = cols as usize + (len - stripped_len)
+                )
             })
             .collect::<String>();
         screen.process(padded.as_bytes());

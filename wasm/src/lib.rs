@@ -46,6 +46,7 @@ impl GuestExecutor for Executor {
             return Ok(ExecuteOk::Error(nu_protocol::format_cli_error(
                 &working_set,
                 error,
+                None,
             )));
         }
 
@@ -53,6 +54,7 @@ impl GuestExecutor for Executor {
             return Ok(ExecuteOk::Error(nu_protocol::format_cli_error(
                 &working_set,
                 error,
+                None,
             )));
         }
 
