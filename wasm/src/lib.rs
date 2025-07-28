@@ -22,6 +22,8 @@ struct Executor {
 
 impl GuestExecutor for Executor {
     fn new() -> Self {
+        unsafe { nu_experimental::set_all(true) };
+
         Self {
             engine_state: initial_engine_state(),
             stack: Stack::default(),
