@@ -2875,6 +2875,7 @@ dependencies = [
  "ed25519-dalek",
  "humantime",
  "image",
+ "itertools 0.14.0",
  "nu-discord-bot-common",
  "reqwest",
  "serde",

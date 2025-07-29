@@ -28,6 +28,9 @@ impl InteractionHandler {
         interaction_client: &InteractionClient<'_>,
         data: CommandData,
     ) -> anyhow::Result<()> {
+        ensure!(data.name == COMMAND_NAME);
+        ensure!(data.kind == CommandType::ChatInput);
+
         debug!(
             "Got request from {}",
             interaction

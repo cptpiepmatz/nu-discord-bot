@@ -16,6 +16,7 @@ cosmic-text = "0.14"
 ed25519-dalek = "2"
 humantime = "2.2"
 image = "0.25"
+itertools = "0.14"
 nu-cmd-extra = { git = "https://github.com/nushell/nushell.git", default-features = false }
 nu-cmd-lang = { git = "https://github.com/nushell/nushell.git", default-features = false }
 nu-command = { git = "https://github.com/nushell/nushell.git", default-features = false }

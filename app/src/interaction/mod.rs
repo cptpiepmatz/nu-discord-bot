@@ -15,6 +15,7 @@ use twilight_util::builder::{
     command::{AttachmentBuilder, CommandBuilder, StringBuilder},
     embed::EmbedBuilder,
 };
+use itertools::Itertools;
 
 use crate::{error_and_bail, executor::ExecuteParams, interaction::render::TerminalRenderer};
 
@@ -70,10 +71,10 @@ impl InteractionHandler {
 
         while let Some(interaction) = self.interaction_rx.recv().await {
             if let Err(err) = self
-                .handle_interaction(interaction, &interaction_client)
+                .handle_interaction(interaction, &client, &interaction_client)
                 .await
             {
-                error!("{err}");
+                error!("{}", err.chain().join(": "));
             }
         }
 
@@ -83,11 +84,12 @@ impl InteractionHandler {
     async fn handle_interaction(
         &mut self,
         mut interaction: Interaction,
+        client: &Client,
         interaction_client: &InteractionClient<'_>,
     ) -> anyhow::Result<()> {
         match interaction.data.take() {
             Some(InteractionData::ApplicationCommand(data)) => {
-                self.handle_application_command(interaction, interaction_client, *data)
+                self.handle_application_command(interaction, client, interaction_client, *data)
                     .await
             }
             data => bail!("Unexpected interaction data: {data:?}"),
@@ -97,6 +99,7 @@ impl InteractionHandler {
     async fn handle_application_command(
         &mut self,
         interaction: Interaction,
+        client: &Client,
         interaction_client: &InteractionClient<'_>,
         data: CommandData,
     ) -> anyhow::Result<()> {
@@ -107,7 +110,10 @@ impl InteractionHandler {
                 self.handle_nu_command(interaction, interaction_client, data)
                     .await
             }
-            cmd::delete_response::COMMAND_NAME => todo!(),
+            cmd::delete_response::COMMAND_NAME => {
+                self.handle_delete_response_command(interaction, client, interaction_client, data)
+                    .await
+            }
             _ => todo!(),
         }
     }
@@ -135,14 +141,14 @@ impl InteractionHandler {
     async fn report(
         &self,
         client: &InteractionClient<'_>,
-        token: &str,
-        title: &str,
+        token: impl AsRef<str>,
+        title: impl AsRef<str>,
         description: impl Into<String>,
         color: u32,
         field: impl Into<Option<(String, anyhow::Error)>>,
     ) -> anyhow::Result<()> {
         let mut embed = EmbedBuilder::new()
-            .title(title)
+            .title(title.as_ref())
             .description(description)
             .color(color);
 
@@ -158,7 +164,7 @@ impl InteractionHandler {
         match embed.validate() {
             Ok(embed) => {
                 client
-                    .update_response(token)
+                    .update_response(token.as_ref())
                     .embeds(Some(&[embed.build()]))
                     .await?
             }
@@ -169,7 +175,7 @@ impl InteractionHandler {
                 }
 
                 client
-                    .update_response(token)
+                    .update_response(token.as_ref())
                     .content(Some(&format!(
                         "**Something went wrong.**\n-# Report that error to <@{}> if it occurs again.",
                         crate::SUPPORT_USER_ID
