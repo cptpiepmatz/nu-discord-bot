@@ -1,0 +1,10 @@
+[package]
+name = "nu-discord-bot-common"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+anyhow.workspace = true
+wasmtime-wasi.workspace = true
+wasmtime.workspace = true

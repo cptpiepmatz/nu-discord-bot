@@ -9,7 +9,7 @@ use exports::nu::discord_bot::nu::{ExecuteError, ExecuteOk};
 use tokio::time::Instant;
 use tracing::{debug, info, instrument};
 use wasmtime::{
-    Config, Engine, Store,
+    Store,
     component::{Component, Linker},
 };
 use wasmtime_wasi::{
@@ -74,14 +74,11 @@ impl NuExecutor {
 
     #[instrument(name = "executor", skip_all)]
     pub async fn run(mut self) -> anyhow::Result<crate::Never> {
+        let engine = common::make_engine()?;
         let ctx = Ctx {
             table: ResourceTable::new(),
             ctx: WasiCtx::builder().build(),
         };
-
-        let mut config = Config::default();
-        let config = config.async_support(true);
-        let engine = Engine::new(config).context("could not create engine")?;
 
         debug!("Deserializing component");
         // SAFETY: The WASM_BYTES were previously serialized by the build script.

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use exports::nu::discord_bot::nu::{ExecuteError, ExecuteOk, File, Guest, GuestExecutor};
 use nu_protocol::{
@@ -20,9 +20,14 @@ struct Executor {
     stack: Stack,
 }
 
+static EXPERIMENTAL_OPTIONS: LazyLock<()> = LazyLock::new(|| {
+    // SAFETY: This is called once before any executor is available
+    unsafe { nu_experimental::set_all(true) }
+});
+
 impl GuestExecutor for Executor {
     fn new() -> Self {
-        unsafe { nu_experimental::set_all(true) };
+        LazyLock::force(&EXPERIMENTAL_OPTIONS);
 
         Self {
             engine_state: initial_engine_state(),
