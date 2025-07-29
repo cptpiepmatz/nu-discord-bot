@@ -2875,6 +2875,7 @@ dependencies = [
  "ed25519-dalek",
  "humantime",
  "image",
+ "nu-discord-bot-common",
  "reqwest",
  "serde",
  "serde_json",
@@ -2887,6 +2888,15 @@ dependencies = [
  "twilight-model",
  "twilight-util",
  "vt100",
+ "wasmtime",
+ "wasmtime-wasi",
+]
+
+[[package]]
+name = "nu-discord-bot-common"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
  "wasmtime",
  "wasmtime-wasi",
 ]

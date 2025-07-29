@@ -1,43 +1,33 @@
 use anyhow::{Context, bail, ensure};
-use image::codecs::png::PngEncoder;
-use std::{
-    collections::HashMap,
-    io::Cursor,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-};
-use tracing::{debug, error, instrument, warn};
+use std::sync::{Arc, atomic::AtomicBool};
+use tracing::{error, instrument, warn};
 use twilight_http::{Client, client::InteractionClient};
 use twilight_model::{
     application::{
         command::CommandType,
         interaction::{
-            Interaction, InteractionData, InteractionType, application_command::CommandOptionValue,
+            Interaction, InteractionData, InteractionType, application_command::CommandData,
         },
     },
     channel::message::embed::EmbedField,
-    http::attachment::Attachment,
 };
 use twilight_util::builder::{
     command::{AttachmentBuilder, CommandBuilder, StringBuilder},
     embed::EmbedBuilder,
 };
 
-use crate::{
-    error_and_bail,
-    executor::{ExecuteParams, ExecuteParamsFile, ExecuteResult},
-    interaction::render::TerminalRenderer,
-};
+use crate::{error_and_bail, executor::ExecuteParams, interaction::render::TerminalRenderer};
 
 mod render;
+mod cmd {
+    pub mod delete_response;
+    pub mod nu;
+}
 
 #[derive(Debug)]
 pub struct InteractionHandler {
     discord_token: String,
     interaction_rx: tokio::sync::mpsc::Receiver<Interaction>,
-    interaction_tokens: HashMap<String, String>,
     wasm_ready: Arc<AtomicBool>,
     execute_tx: tokio::sync::mpsc::Sender<ExecuteParams>,
     http_client: reqwest::Client,
@@ -54,12 +44,19 @@ impl InteractionHandler {
         InteractionHandler {
             discord_token,
             interaction_rx,
-            interaction_tokens: HashMap::new(),
             wasm_ready,
             execute_tx,
             http_client: reqwest::Client::new(),
             terminal_renderer: TerminalRenderer::new(),
         }
+    }
+
+    pub fn reply_ephemeral(interaction: &Interaction) -> bool {
+        if let Some(InteractionData::ApplicationCommand(data)) = interaction.data.as_ref() {
+            return data.kind != CommandType::ChatInput;
+        }
+
+        true
     }
 
     #[instrument(name = "interaction", skip_all)]
@@ -85,205 +82,54 @@ impl InteractionHandler {
 
     async fn handle_interaction(
         &mut self,
-        interaction: Interaction,
+        mut interaction: Interaction,
         interaction_client: &InteractionClient<'_>,
     ) -> anyhow::Result<()> {
-        debug!(
-            "Got request from {}",
-            interaction
-                .author()
-                .as_ref()
-                .map(|user| user.name.as_str())
-                .unwrap_or("unknown")
-        );
-
-        if !self.wasm_ready.load(Ordering::Relaxed) {
-            self.report(
-                &interaction_client,
-                &interaction.token,
-                "⚠️ Nu Executor Not Ready Yet",
-                "The WASM runtime did not fully boot up yet.\nWait a bit and try again later.",
-                crate::CONSTANTS.colors.yellow as u32,
-                None,
-            )
-            .await
-            .context("Failed to report Nu Executor Not Ready")?;
-            return Ok(());
+        match interaction.data.take() {
+            Some(InteractionData::ApplicationCommand(data)) => {
+                self.handle_application_command(interaction, interaction_client, *data)
+                    .await
+            }
+            data => bail!("Unexpected interaction data: {data:?}"),
         }
+    }
 
-        let (result_tx, result_rx) = tokio::sync::oneshot::channel();
-        let execute_params = match self.extract_execute_params(&interaction, result_tx).await {
-            Ok(params) => params,
-            Err(err) => {
-                self.report(
-                    &interaction_client,
-                    &interaction.token,
-                    "⚠️ Invalid Interaction Options",
-                    format!(
-                        "Discord sent invalid interaction options.\nReport this to <@{}>.",
-                        crate::SUPPORT_USER_ID
-                    ),
-                    crate::CONSTANTS.colors.red as u32,
-                    (
-                        std::any::type_name_of_val(err.root_cause()).to_string(),
-                        err,
-                    ),
-                )
-                .await
-                .context("Failed to report invalid interaction options")?;
-                return Ok(());
-            }
-        };
+    async fn handle_application_command(
+        &mut self,
+        interaction: Interaction,
+        interaction_client: &InteractionClient<'_>,
+        data: CommandData,
+    ) -> anyhow::Result<()> {
+        ensure!(interaction.kind == InteractionType::ApplicationCommand);
 
-        self.execute_tx
-            .send(execute_params)
-            .await
-            .context("Failed to send execute parameters")?;
-
-        match result_rx.await {
-            Ok(Ok((res, elapsed))) => {
-                debug!("Rendering result image");
-                let image = self.terminal_renderer.render(&res);
-                debug!("Encoding result image");
-                let mut buf = Cursor::new(Vec::new());
-                let encoder = PngEncoder::new(&mut buf);
-                image
-                    .write_with_encoder(encoder)
-                    .expect("correctly allocated buf");
-                debug!("Trying to respond in Discord");
-                interaction_client
-                    .update_response(&interaction.token)
-                    .attachments(&[Attachment {
-                        description: None,
-                        file: buf.into_inner(),
-                        filename: String::from("result.png"),
-                        id: 0,
-                    }])
-                    .content(Some(&format!(
-                        "-# took {}",
-                        humantime::format_duration(elapsed)
-                    )))
+        match data.name.as_str() {
+            cmd::nu::COMMAND_NAME => {
+                self.handle_nu_command(interaction, interaction_client, data)
                     .await
-                    .context("Failed to update response with result")?;
             }
-            Ok(Err(err)) => {
-                self.report(
-                    &interaction_client,
-                    &interaction.token,
-                    "⚠️ Error During Nu Execution",
-                    "An error while executing pipeline occurred.",
-                    crate::CONSTANTS.colors.yellow as u32,
-                    (
-                        std::any::type_name_of_val(err.root_cause()).to_string(),
-                        err,
-                    ),
-                )
-                .await
-                .context("Failed to report error during Nu execution")?;
-            }
-            Err(err) => {
-                self.report(
-                        &interaction_client,
-                        &interaction.token,
-                        "⚠️ Error Receiving Results",
-                        format!(
-                            "An error occurred while receiving the pipeline result.\nReport this to <@{}>.",
-                            crate::SUPPORT_USER_ID
-                        ),
-                        crate::CONSTANTS.colors.red as u32,
-                        (std::any::type_name_of_val(&err).to_string(), anyhow::Error::new(err)),
-                    )
-                    .await
-                    .context("Failed to report error receiving results")?;
-            }
-        };
-
-        Ok(())
+            cmd::delete_response::COMMAND_NAME => todo!(),
+            _ => todo!(),
+        }
     }
 
     async fn register_commands(interaction_client: &InteractionClient<'_>) -> anyhow::Result<()> {
-        let nu_command =
-            CommandBuilder::new("nu", "Execute a nushell pipeline", CommandType::ChatInput)
-                .option(StringBuilder::new("source", "pipeline source code").required(true))
-                .option(AttachmentBuilder::new("file", "input file"))
-                .validate()?
-                .build();
+        let nu_command = CommandBuilder::new(
+            cmd::nu::COMMAND_NAME,
+            "Execute a nushell pipeline",
+            CommandType::ChatInput,
+        )
+        .option(StringBuilder::new("source", "pipeline source code").required(true))
+        .option(AttachmentBuilder::new("file", "input file"))
+        .validate()?
+        .build();
         let delete_command =
-            CommandBuilder::new("Delete Nushell Response", "", CommandType::Message)
+            CommandBuilder::new(cmd::delete_response::COMMAND_NAME, "", CommandType::Message)
                 .validate()?
                 .build();
         interaction_client
             .set_global_commands(&[nu_command, delete_command])
             .await?;
         Ok(())
-    }
-
-    async fn extract_execute_params(
-        &self,
-        interaction: &Interaction,
-        result_tx: tokio::sync::oneshot::Sender<ExecuteResult>,
-    ) -> anyhow::Result<ExecuteParams> {
-        ensure!(interaction.kind == InteractionType::ApplicationCommand);
-
-        let Some(InteractionData::ApplicationCommand(data)) = &interaction.data else {
-            bail!("expected interaction data to be an application command");
-        };
-
-        ensure!(data.name == "nu");
-        ensure!(data.kind == CommandType::ChatInput);
-
-        let source = data
-            .options
-            .iter()
-            .find(|option| option.name == "source")
-            .map(|option| &option.value)
-            .context("missing source option")?;
-        let source = match source {
-            CommandOptionValue::String(source) => source,
-            kind => bail!("expected source to be a string, got {}", kind.kind().kind()),
-        };
-
-        let file = match data
-            .options
-            .iter()
-            .find(|option| option.name == "file")
-            .map(|option| &option.value)
-        {
-            None => None,
-            Some(file) => {
-                let id = match file {
-                    CommandOptionValue::Attachment(id) => id,
-                    kind => bail!(
-                        "expected file to be an attachment, got {}",
-                        kind.kind().kind()
-                    ),
-                };
-
-                let Some(resolved) = &data.resolved else {
-                    bail!(
-                        "expected interaction to have resolve data, because it contains file attachment"
-                    );
-                };
-
-                let Some(file) = resolved.attachments.get(id) else {
-                    bail!("could not find file attachment in resolved data");
-                };
-
-                let file = self.http_client.get(&file.url).send().await?;
-                let file = file.bytes().await?;
-                Some(match String::from_utf8(file.to_vec()) {
-                    Ok(text) => ExecuteParamsFile::Text(text),
-                    Err(_) => ExecuteParamsFile::Bytes(file),
-                })
-            }
-        };
-
-        Ok(ExecuteParams {
-            result_tx,
-            fname: "something".into(),
-            source: source.to_owned(),
-            file,
-        })
     }
 
     async fn report(

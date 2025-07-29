@@ -15,12 +15,12 @@ use serde_json::json;
 use tracing::instrument;
 use twilight_model::{
     application::interaction::{Interaction, InteractionType},
-    channel::message::embed::EmbedField,
+    channel::message::{MessageFlags, embed::EmbedField},
     http::interaction::{InteractionResponse, InteractionResponseType},
 };
 use twilight_util::builder::{InteractionResponseDataBuilder, embed::EmbedBuilder};
 
-use crate::error_and_bail;
+use crate::{error_and_bail, interaction::InteractionHandler};
 
 #[derive(Debug, Clone)]
 pub struct HttpHandler {
@@ -100,7 +100,19 @@ impl HttpHandler {
             .to_str()
             .map_err(|_| StatusCode::BAD_REQUEST)?;
 
-        let body = axum::body::to_bytes(body, 4096)
+        let content_length: usize = headers
+            .get("Content-Length")
+            .map::<Result<usize, StatusCode>, _>(|value| {
+                Ok(value
+                    .to_str()
+                    .map_err(|_| StatusCode::BAD_REQUEST)?
+                    .parse()
+                    .map_err(|_| StatusCode::BAD_REQUEST)?)
+            })
+            .transpose()?
+            .unwrap_or(4096);
+
+        let body = axum::body::to_bytes(body, content_length)
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -124,7 +136,7 @@ impl HttpHandler {
             InteractionType::MessageComponent
             | InteractionType::ModalSubmit
             | InteractionType::ApplicationCommandAutocomplete => {
-                Err((StatusCode::INTERNAL_SERVER_ERROR, "unimplemented").into())
+                Err(StatusCode::NOT_IMPLEMENTED.into())
             }
             _ => Err(StatusCode::UNPROCESSABLE_ENTITY.into()),
         }
@@ -141,6 +153,8 @@ impl HttpHandler {
         &self,
         interaction: Json<Interaction>,
     ) -> Json<InteractionResponse> {
+        let reply_ephemeral = InteractionHandler::reply_ephemeral(&interaction.0);
+
         if let Err(err) = self.interaction_tx.send(interaction.0).await {
             let embed = EmbedBuilder::new()
                 .title("⚠️ Interaction Handler Died")
@@ -167,7 +181,14 @@ impl HttpHandler {
 
         Json(InteractionResponse {
             kind: InteractionResponseType::DeferredChannelMessageWithSource,
-            data: None,
+            data: Some(
+                InteractionResponseDataBuilder::new()
+                    .flags(match reply_ephemeral {
+                        true => MessageFlags::EPHEMERAL,
+                        false => MessageFlags::empty(),
+                    })
+                    .build(),
+            ),
         })
     }
 }

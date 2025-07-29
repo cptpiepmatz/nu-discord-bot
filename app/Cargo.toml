@@ -4,6 +4,10 @@ version.workspace = true
 edition.workspace = true
 publish = false
 
+[dependencies.common]
+package = "nu-discord-bot-common"
+path = "../common"
+
 [dependencies]
 anyhow.workspace = true
 axum.workspace = true
@@ -28,6 +32,10 @@ twilight-util.workspace = true
 vt100.workspace = true
 wasmtime-wasi.workspace = true
 wasmtime.workspace = true
+
+[build-dependencies.common]
+package = "nu-discord-bot-common"
+path = "../common"
 
 [build-dependencies]
 wasmtime.workspace = true

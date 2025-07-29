@@ -4,7 +4,7 @@ edition = "2024"
 
 [workspace]
 resolver = "3"
-members = ["app", "wasm"]
+members = ["app", "common", "wasm"]
 
 [workspace.dependencies]
 anyhow = "1"

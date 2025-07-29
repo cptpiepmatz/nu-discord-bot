@@ -1,9 +1,10 @@
 use std::{collections::VecDeque, env, fs, process::Command};
 
-use wasmtime::{Config, Engine, component::Component};
+use wasmtime::component::Component;
 
 const TARGET: &str = "wasm32-wasip2";
 const TARGET_DIR: &str = "target/wasm";
+const PACKAGE: &str = "nu-discord-bot-wasm";
 
 fn main() {
     build_wasm();
@@ -20,7 +21,9 @@ fn build_wasm() {
     let profile = env::var("PROFILE").expect("set by cargo");
     let out_dir = env::var("OUT_DIR").expect("set by cargo");
 
-    let command = format!("cargo build --lib --target {TARGET} --target-dir {TARGET_DIR}");
+    let command = format!(
+        "cargo build --lib --package {PACKAGE} --target {TARGET} --target-dir {TARGET_DIR}"
+    );
 
     let mut args: VecDeque<_> = command.split(' ').collect();
     let command = args.pop_front().unwrap();
@@ -39,10 +42,7 @@ fn build_wasm() {
         panic!("Could not build WASM library");
     }
 
-    let mut config = Config::default();
-    let config = config.async_support(true);
-    let engine = Engine::new(config).expect("could not create engine");
-
+    let engine = common::make_engine().unwrap();
     let component_path = format!(
         "{cargo_manifest_dir}/../target/wasm/wasm32-wasip2/{profile}/nu_discord_bot_wasm.wasm"
     );
