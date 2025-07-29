@@ -208,8 +208,12 @@ impl InteractionHandler {
                 .option(AttachmentBuilder::new("file", "input file"))
                 .validate()?
                 .build();
+        let delete_command =
+            CommandBuilder::new("Delete Nushell Response", "", CommandType::Message)
+                .validate()?
+                .build();
         interaction_client
-            .set_global_commands(&[nu_command])
+            .set_global_commands(&[nu_command, delete_command])
             .await?;
         Ok(())
     }
